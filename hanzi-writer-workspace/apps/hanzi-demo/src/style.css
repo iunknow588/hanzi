@@ -112,6 +112,76 @@ button:hover {
   font-weight: 500;
 }
 
+.score-panel {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.score-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.score-panel__header strong {
+  font-size: 2rem;
+  color: #0f172a;
+}
+
+.score-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.score-list li {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: white;
+  padding: 0.45rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.score-list li.score-good {
+  border-color: #22c55e;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.score-list li.score-medium {
+  border-color: #fbbf24;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.score-list li.score-poor {
+  border-color: #f87171;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.score-list li.score-pending {
+  font-style: italic;
+  color: #94a3b8;
+  border-style: dashed;
+}
+
+.score-chip {
+  font-size: 0.8rem;
+  color: #475569;
+}
+
 @media (max-width: 600px) {
   body {
     padding: 1rem;

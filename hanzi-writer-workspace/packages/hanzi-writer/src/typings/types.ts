@@ -1,6 +1,7 @@
 import RenderTargetBase from 'hanzi-writer-renderers/RenderTargetBase';
 import { HanziWriterRendererConstructor } from 'hanzi-writer-renderers/HanziWriterRendererBase';
 import type { PositionerOptions } from '../Positioner';
+import type { StrokeSimilarityScore, StrokeSimilarityWeights } from '../strokeMatches';
 
 export type { PositionerOptions };
 
@@ -74,10 +75,13 @@ export type QuizOptions = {
   markStrokeCorrectAfterMisses: number | false;
   /** bigger = more lenient */
   averageDistanceThreshold: number;
+  enableLocalScoring: boolean;
+  strokeScoreWeights: StrokeSimilarityWeights;
   onMistake?: (strokeData: StrokeData) => void;
   onCorrectStroke?: (strokeData: StrokeData) => void;
   /** Callback when the quiz completes */
   onComplete?: (summary: { character: string; totalMistakes: number }) => void;
+  onScoreUpdate?: (payload: ScoreUpdatePayload) => void;
 };
 
 export type LoadingManagerOptions = {
@@ -145,4 +149,12 @@ export type ParsedHanziWriterOptions = QuizOptions &
 
 export type RecursivePartial<T> = {
   [P in keyof T]?: RecursivePartial<T[P]>;
+};
+
+export type ScoreUpdatePayload = {
+  character: string;
+  strokeIndex: number;
+  score: StrokeSimilarityScore;
+  history: Array<StrokeSimilarityScore | null>;
+  overallScore: number;
 };

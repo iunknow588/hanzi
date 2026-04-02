@@ -1,4 +1,8 @@
-import strokeMatches, { StrokeMatchResultMeta } from './strokeMatches';
+import strokeMatches, {
+  StrokeMatchResultMeta,
+  evaluateStrokeSimilarity,
+  StrokeSimilarityScore,
+} from './strokeMatches';
 import UserStroke from './models/UserStroke';
 import Positioner from './Positioner';
 import { counter, colorStringToVals, fixIndex } from './utils';
@@ -28,6 +32,7 @@ export default class Quiz {
   _totalMistakes = 0;
   _userStroke: UserStroke | undefined;
   _userStrokesIds: Array<number> | undefined;
+  _strokeScores: Array<StrokeSimilarityScore | null> = [];
 
   constructor(character: Character, renderState: RenderState, positioner: Positioner) {
     this._character = character;
@@ -43,6 +48,7 @@ export default class Quiz {
       );
     }
     this._userStrokesIds = []
+    this._strokeScores = [];
 
     this._isActive = true;
     this._options = options;
@@ -130,6 +136,23 @@ export default class Quiz {
 
     const isAccepted =
       isMatch || isForceAccepted || (meta.isStrokeBackwards && acceptBackwardsStrokes);
+
+    const quizOptions = this._options;
+    if (quizOptions?.enableLocalScoring) {
+      const similarityScore = evaluateStrokeSimilarity(
+        this._userStroke,
+        this._character,
+        this._currentStrokeIndex,
+        {
+          leniency: quizOptions.leniency,
+          averageDistanceThreshold: quizOptions.averageDistanceThreshold,
+          isOutlineVisible: this._renderState.state.character.outline.opacity > 0,
+          weights: quizOptions.strokeScoreWeights,
+        },
+      );
+      similarityScore.accepted = isAccepted;
+      this._recordStrokeScore(similarityScore);
+    }
 
     if (isAccepted) {
       this._handleSuccess(meta);
@@ -252,5 +275,24 @@ export default class Quiz {
 
   _getCurrentStroke() {
     return this._character.strokes[this._currentStrokeIndex];
+  }
+
+  _recordStrokeScore(score: StrokeSimilarityScore) {
+    if (!this._options?.onScoreUpdate) return;
+    this._strokeScores[this._currentStrokeIndex] = score;
+    const scored = this._strokeScores.filter(
+      (entry): entry is StrokeSimilarityScore => Boolean(entry),
+    );
+    const overallScore =
+      scored.length === 0
+        ? 0
+        : scored.reduce((sum, entry) => sum + entry.overall, 0) / scored.length;
+    this._options.onScoreUpdate({
+      character: this._character.symbol,
+      strokeIndex: this._currentStrokeIndex,
+      score,
+      history: this._strokeScores.slice(),
+      overallScore,
+    });
   }
 }

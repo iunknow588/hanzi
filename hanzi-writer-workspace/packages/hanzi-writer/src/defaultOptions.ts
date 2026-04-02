@@ -42,6 +42,14 @@ const defaultOptions: HanziWriterOptions = {
   acceptBackwardsStrokes: false,
   quizStartStrokeNum: 0,
   averageDistanceThreshold: 350,
+  enableLocalScoring: false,
+  strokeScoreWeights: {
+    endpoints: 0.3,
+    direction: 0.25,
+    shape: 0.35,
+    order: 0.1,
+  },
+  onScoreUpdate: undefined,
 
   // undocumented obscure options
 
