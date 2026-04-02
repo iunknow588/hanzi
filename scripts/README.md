@@ -5,6 +5,7 @@
 - `deploy_all.sh`：一键串联 GitHub 推送与 Vercel 部署（可通过环境变量跳过某一环节），内部会先在 workspace 执行 `yarn renderers:build`、`yarn demo:build` 再调用 `deploy_vercel.sh`
 - `upload_to_github.sh`：初始化/校验 Git 远端，提交并推送到 `git@github.com:iunknow588/hanzi.git`
 - `deploy_vercel.sh`：基于 Vercel CLI 发布静态 Demo（默认目录 `hanzi-writer-workspace/apps/hanzi-demo`，可通过环境变量覆盖）
+- `run_cozepy_checks.sh`：自动执行 `check_cozepy.py`，验证 Python 3.10 + cozepy SDK 是否就绪，必要时可读取 `COZE_API_TOKEN` / `COZE_API_BASE` 尝试初始化 Coze 客户端
 
 ## 快速开始
 
@@ -19,6 +20,9 @@ HANZI_VERCEL_PROJECT=hanzi-demo \
 # 如需单独操作，可直接调用下面两个脚本：
 ./scripts/upload_to_github.sh "feat: update workspace"
 ./scripts/deploy_vercel.sh preview
+
+# 体检 Coze Python SDK（需要 Python 3.10+）
+./scripts/run_cozepy_checks.sh
 ```
 
 ## 环境变量

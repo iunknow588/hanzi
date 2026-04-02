@@ -32,6 +32,74 @@
             <li class="score-pending">等待评分…</li>
           </ul>
         </div>
+        <div class="upload-panel">
+          <h2>整页上传评分</h2>
+          <p class="upload-panel__hint">上传整页稿纸，交由后端队列调用 Coze 插件评分。</p>
+          <form id="upload-form">
+            <label for="page-file">稿纸文件</label>
+            <input id="page-file" type="file" accept="image/*,.pdf" required />
+            <div class="upload-panel__options">
+              <div>
+                <label for="artifact-level">Artifact 级别</label>
+                <select id="artifact-level">
+                  <option value="standard">standard</option>
+                  <option value="debug">debug</option>
+                  <option value="lite">lite</option>
+                </select>
+              </div>
+              <div>
+                <label for="score-artifact-level">评分 Artifact</label>
+                <select id="score-artifact-level">
+                  <option value="standard">standard</option>
+                  <option value="debug">debug</option>
+                </select>
+              </div>
+              <div>
+                <label for="execution-mode">执行模式</label>
+                <select id="execution-mode">
+                  <option value="pipeline">pipeline（单体流程）</option>
+                  <option value="skills">skills（切分 + 评分）</option>
+                </select>
+              </div>
+            </div>
+            <button id="upload-submit" type="submit">上传并排队</button>
+          </form>
+          <div class="job-list">
+            <div class="job-list__header">
+              <strong>任务状态</strong>
+              <button id="refresh-jobs" type="button" class="btn-secondary">刷新</button>
+            </div>
+            <p id="job-status-message" class="job-status-message">尚未拉取数据</p>
+            <ul id="job-list-entries" class="job-list__items"></ul>
+            <div class="job-result" id="job-result-panel">
+              <div class="job-result__header">
+                <strong id="job-result-title">尚未选择任务</strong>
+                <button id="job-result-close" type="button" class="btn-secondary btn-small">清空</button>
+              </div>
+              <p id="job-result-summary" class="job-result__summary">选择已完成的任务即可查看详情。</p>
+              <div class="job-result__metrics" id="job-result-metrics"></div>
+              <div class="job-result__cells">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>格子</th>
+                      <th>字符</th>
+                      <th>总体</th>
+                      <th>起止</th>
+                      <th>走向</th>
+                      <th>形态</th>
+                    </tr>
+                  </thead>
+                  <tbody id="job-result-cells">
+                    <tr>
+                      <td colspan="6" class="job-result__placeholder">暂无数据</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       <div id="writer"></div>
     </div>

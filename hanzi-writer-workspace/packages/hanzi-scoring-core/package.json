@@ -1,0 +1,21 @@
+{
+  "name": "hanzi-scoring-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared scoring utilities for Hanzi Writer projects",
+  "type": "module",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --out-dir dist --clean",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --out-dir dist --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "tslib": "^2.6.2",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.0"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": false,
+    "module": "esnext",
+    "target": "es2019",
+    "moduleResolution": "bundler",
+    "skipLibCheck": true
+  },
+  "include": ["src"]
+}

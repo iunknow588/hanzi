@@ -3,3 +3,6 @@ node_modules/
 hanzi-writer-workspace/yarn.lock
 hanzi-writer-workspace/packages/hanzi-writer-renderers/dist/
 hanzi-writer-workspace/apps/hanzi-demo/dist/
+services/coze-bridge/jobs/
+services/coze-bridge/_uploads/
+services/coze-bridge/node_modules/

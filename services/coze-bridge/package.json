@@ -1,0 +1,15 @@
+{
+  "name": "hanzi-coze-bridge",
+  "version": "0.1.0",
+  "description": "Bridge service between the Hanzi front-end and /baby/coze/插件 pipeline",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "run-local": "node run-local.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "multer": "^2.0.0"
+  }
+}
