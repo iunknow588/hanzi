@@ -99,9 +99,9 @@ cp -R "$SOURCE_PATH/.vercel" "$TMP_VERCEL_DIR"
 
 log_info "步骤 3: 部署 ($HANZI_VERCEL_BUILD_DIR)"
 if [ "$ENVIRONMENT" = "production" ]; then
-  vercel deploy "$BUILD_PATH" --prod --yes --scope "$HANZI_VERCEL_SCOPE" --project "$HANZI_VERCEL_PROJECT" --logs --archive="$HANZI_VERCEL_ARCHIVE"
+  vercel deploy "$BUILD_PATH" --prod --yes --scope "$HANZI_VERCEL_SCOPE" --logs --archive="$HANZI_VERCEL_ARCHIVE"
 else
-  vercel deploy "$BUILD_PATH" --yes --scope "$HANZI_VERCEL_SCOPE" --project "$HANZI_VERCEL_PROJECT" --logs --archive="$HANZI_VERCEL_ARCHIVE"
+  vercel deploy "$BUILD_PATH" --yes --scope "$HANZI_VERCEL_SCOPE" --logs --archive="$HANZI_VERCEL_ARCHIVE"
 fi
 
 rm -rf "$TMP_VERCEL_DIR"
