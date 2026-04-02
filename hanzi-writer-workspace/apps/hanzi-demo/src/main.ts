@@ -1,6 +1,7 @@
 import HanziWriter from 'hanzi-writer';
 import { createCharDataLoader } from 'hanzi-writer-data-client';
 import localDataMap from './local-data.json';
+import './style.css';
 
 const loader = createCharDataLoader({
   source: 'hybrid',
@@ -11,16 +12,108 @@ const writerContainer = document.getElementById('writer');
 const statusElm = document.getElementById('loader-status');
 const scoreTotalElm = document.getElementById('score-total-value');
 const scoreListElm = document.getElementById('score-strokes');
+const input = document.getElementById('char-input') as HTMLInputElement | null;
+const button = document.getElementById('load-btn') as HTMLButtonElement | null;
+const chipList = document.getElementById('local-chip-list');
+const restartQuizBtn = document.getElementById('restart-quiz');
+const hintToggleInput = document.getElementById('hint-toggle') as HTMLInputElement | null;
+const sequenceInput = document.getElementById('sequence-input') as HTMLTextAreaElement | null;
+const sequenceApplyBtn = document.getElementById('sequence-apply') as HTMLButtonElement | null;
+const sequenceNextBtn = document.getElementById('sequence-next') as HTMLButtonElement | null;
+const sequenceCurrentElm = document.getElementById('sequence-current');
+const sequenceRemainingElm = document.getElementById('sequence-remaining');
+const sequencePreviewElm = document.getElementById('sequence-preview');
+const sequenceSampleBtn = document.getElementById('sequence-sample') as HTMLButtonElement | null;
+const sequenceResetBtn = document.getElementById('sequence-reset') as HTMLButtonElement | null;
+const writerFeedbackElm = document.getElementById('writer-feedback');
+const sessionStatusElm = document.getElementById('session-status');
+const modeButtons = Array.from(
+  document.querySelectorAll<HTMLButtonElement>('[data-mode]'),
+);
 
 if (!writerContainer) {
   throw new Error('#writer element missing');
 }
+
+writerContainer.addEventListener('pointerdown', () => {
+  setWriterFeedback('检测到笔画输入，继续保持即可。');
+});
+
+const handlePointerComplete = () => {
+  setWriterFeedback('已记录该笔画，等待评分...');
+};
+
+writerContainer.addEventListener('pointerup', handlePointerComplete);
+writerContainer.addEventListener('pointercancel', handlePointerComplete);
 
 const setStatus = (msg: string) => {
   if (statusElm) {
     statusElm.textContent = msg;
   }
 };
+
+const setWriterFeedback = (msg: string) => {
+  if (writerFeedbackElm) {
+    writerFeedbackElm.textContent = msg;
+  }
+};
+
+const setSessionStatus = (msg: string) => {
+  if (sessionStatusElm) {
+    sessionStatusElm.textContent = msg;
+  }
+};
+
+const defaultSequenceSample = '天地玄黄宇宙洪荒';
+
+const parseSequenceValue = (value: string) =>
+  Array.from(value.replace(/\s+/g, '')).filter((char) => Boolean(char.trim()));
+
+let sequenceQueue: string[] = [];
+let sequenceIndex = -1;
+
+const renderSequencePreview = () => {
+  if (!sequencePreviewElm) return;
+  sequencePreviewElm.innerHTML = '';
+  if (!sequenceQueue.length) {
+    sequencePreviewElm.textContent = '暂无字帖，先输入文字。';
+    sequencePreviewElm.classList.add('copybook-preview__empty');
+    return;
+  }
+  sequencePreviewElm.classList.remove('copybook-preview__empty');
+  sequenceQueue.forEach((char, index) => {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    if (index === sequenceIndex) {
+      chip.classList.add('chip--active');
+    }
+    chip.textContent = char;
+    chip.addEventListener('click', () => {
+      loadSequenceCharAt(index);
+    });
+    sequencePreviewElm.appendChild(chip);
+  });
+};
+
+const updateSequenceStatus = () => {
+  if (sequenceCurrentElm) {
+    if (sequenceIndex >= 0 && sequenceIndex < sequenceQueue.length) {
+      sequenceCurrentElm.textContent = sequenceQueue[sequenceIndex];
+    } else {
+      sequenceCurrentElm.textContent = '--';
+    }
+  }
+  if (sequenceRemainingElm) {
+    const remaining =
+      sequenceQueue.length && sequenceIndex >= -1
+        ? Math.max(sequenceQueue.length - (sequenceIndex + 1), 0)
+        : 0;
+    sequenceRemainingElm.textContent = `${remaining}`;
+  }
+  renderSequencePreview();
+};
+
+updateSequenceStatus();
 
 type ScoreComponents = {
   endpoints: number;
@@ -35,6 +128,8 @@ type ScoreEntry = {
   accepted: boolean;
   components: ScoreComponents;
 };
+
+type SessionMode = 'practice' | 'test';
 
 type ScoreUpdatePayload = {
   overallScore: number;
@@ -128,38 +223,17 @@ const handleScoreUpdate = (payload: ScoreUpdatePayload) => {
     scoreTotalElm.textContent = `${formatScore(payload.overallScore)}`;
   }
   renderScoreHistory(payload.history);
+  setWriterFeedback(
+    `第 ${payload.strokeIndex + 1} 笔：${formatScore(payload.score.overall)} 分（总分 ${formatScore(
+      payload.overallScore,
+    )}）`,
+  );
+  setSessionStatus(
+    `第 ${payload.strokeIndex + 1} 笔得分 ${formatScore(payload.score.overall)}，当前总分 ${formatScore(
+      payload.overallScore,
+    )}。`,
+  );
 };
-
-const createQueuedQuizStarter = () => {
-  let hintsEnabled = true;
-
-  const start = (writer: HanziWriter) => {
-    const maybeCancelable = writer as HanziWriter & { cancelQuiz?: () => void };
-    maybeCancelable.cancelQuiz?.();
-    writer.quiz({
-      showHintAfterMisses: hintsEnabled ? 1 : Infinity,
-      highlightOnComplete: true,
-      onComplete: () => {
-        setTimeout(() => {
-          writer.quiz({
-            showHintAfterMisses: hintsEnabled ? 1 : Infinity,
-            highlightOnComplete: true,
-          });
-        }, 500);
-      },
-    });
-  };
-
-  return {
-    start,
-    setHints(value: boolean, writer: HanziWriter) {
-      hintsEnabled = value;
-      start(writer);
-    },
-  };
-};
-
-const quizController = createQueuedQuizStarter();
 
 const createWriter = (char: string) => {
   writerContainer.innerHTML = '';
@@ -171,7 +245,6 @@ const createWriter = (char: string) => {
     enableLocalScoring: true,
     onScoreUpdate: handleScoreUpdate,
   });
-  quizController.start(writer);
   return writer;
 };
 
@@ -184,24 +257,145 @@ const loadCharacter = (char: string) => {
     .setCharacter(char)
     .then(() => {
       setStatus(`已加载 ${char}`);
-      quizController.start(currentWriter);
+      setWriterFeedback(`已切换到 ${char}，点击画布即可开始。`);
+      startQuiz();
     })
     .catch((error) => {
       console.error(error);
       setStatus(`加载 ${char} 失败，重建画布...`);
       currentWriter = createWriter(char);
+      startQuiz();
     });
 };
 
-resetScorePanel();
-let currentWriter = createWriter('我');
-loadCharacter('我');
+const loadSequenceCharAt = (nextIndex: number) => {
+  if (!sequenceQueue.length) return false;
+  if (nextIndex < 0 || nextIndex >= sequenceQueue.length) {
+    updateSequenceStatus();
+    return false;
+  }
+  sequenceIndex = nextIndex;
+  const targetChar = sequenceQueue[nextIndex];
+  if (input) input.value = targetChar;
+  updateSequenceStatus();
+  setStatus(`序列 ${nextIndex + 1}/${sequenceQueue.length}：${targetChar}`);
+  setSessionStatus(`准备练习：第 ${nextIndex + 1} 个字 ${targetChar}`);
+  loadCharacter(targetChar);
+  return true;
+};
 
-const input = document.getElementById('char-input') as HTMLInputElement | null;
-const button = document.getElementById('load-btn');
-const chipList = document.getElementById('local-chip-list');
-const restartQuizBtn = document.getElementById('restart-quiz');
-const hintToggleInput = document.getElementById('hint-toggle') as HTMLInputElement | null;
+const applySequenceFromInput = () => {
+  const raw = sequenceInput?.value || '';
+  const nextQueue = parseSequenceValue(raw);
+  sequenceQueue = nextQueue;
+  sequenceIndex = -1;
+  if (!nextQueue.length) {
+    setStatus('请输入至少一个汉字后再开始序列练习。');
+    updateSequenceStatus();
+    setSessionStatus('尚未载入字帖，请输入汉字。');
+    return;
+  }
+  setStatus(`已载入 ${nextQueue.length} 个汉字，自动加载第一个。`);
+  setSessionStatus(`已载入字帖，总计 ${nextQueue.length} 个汉字。`);
+  loadSequenceCharAt(0);
+};
+
+const advanceSequenceChar = () => {
+  if (!sequenceQueue.length) {
+    setStatus('当前没有练习序列，可先输入汉字后点击“载入字帖”。');
+    return false;
+  }
+  const nextIndex = sequenceIndex + 1;
+  if (nextIndex >= sequenceQueue.length) {
+    setStatus('序列已写完，可重新开始或输入新的序列。');
+    updateSequenceStatus();
+    return false;
+  }
+  loadSequenceCharAt(nextIndex);
+  return true;
+};
+
+const loadManualCharacter = (value: string) => {
+  if (!value) return;
+  sequenceIndex = -1;
+  updateSequenceStatus();
+  setSessionStatus('单字练习：已切换到自定义汉字。');
+  loadCharacter(value);
+};
+
+let currentWriter: HanziWriter;
+let sessionMode: SessionMode = 'practice';
+let practiceHintPreference = hintToggleInput?.checked ?? true;
+let hintsEnabled = practiceHintPreference;
+
+const updateModeButtons = () => {
+  modeButtons.forEach((btn) => {
+    const target = btn.dataset.mode as SessionMode | undefined;
+    btn.classList.toggle('is-active', target === sessionMode);
+  });
+};
+
+const syncHintToggleState = () => {
+  if (!hintToggleInput) return;
+  if (sessionMode === 'practice') {
+    hintToggleInput.disabled = false;
+    hintToggleInput.checked = practiceHintPreference;
+    hintsEnabled = practiceHintPreference;
+  } else {
+    hintToggleInput.disabled = true;
+    hintToggleInput.checked = false;
+    hintsEnabled = false;
+  }
+};
+
+const startQuiz = () => {
+  if (!currentWriter) return;
+  const maybeCancelable = currentWriter as HanziWriter & { cancelQuiz?: () => void };
+  maybeCancelable.cancelQuiz?.();
+  const showHintAfterMisses =
+    sessionMode === 'practice' && hintsEnabled ? 1 : Infinity;
+  setSessionStatus(
+    sessionMode === 'practice'
+      ? '练习模式：随时落笔即可看到评分。'
+      : '测试模式：完成整字后自动跳到下一个字。',
+  );
+  currentWriter.quiz({
+    showHintAfterMisses,
+    highlightOnComplete: true,
+    onComplete: () => {
+      if (sessionMode === 'practice') {
+        setSessionStatus('该字练习完成，可继续书写或切换其它汉字。');
+        setTimeout(() => startQuiz(), 400);
+      } else {
+        const advanced = advanceSequenceChar();
+        if (!advanced) {
+          setSessionStatus('测试完成，字帖已写完，可重新开始。');
+        } else {
+          setSessionStatus('已切换到下一测试字，继续完成全部笔画。');
+        }
+      }
+    },
+  });
+};
+
+const setSessionMode = (mode: SessionMode) => {
+  if (sessionMode === mode) return;
+  sessionMode = mode;
+  updateModeButtons();
+  syncHintToggleState();
+  setSessionStatus(
+    mode === 'practice'
+      ? '已切换到练习模式，可使用提示并即时评分。'
+      : '已切换到测试模式，禁用提示并逐字评分。',
+  );
+  startQuiz();
+};
+
+resetScorePanel();
+currentWriter = createWriter('我');
+syncHintToggleState();
+updateModeButtons();
+loadCharacter('我');
 
 if (chipList) {
   Object.keys(localDataMap).forEach((char) => {
@@ -210,7 +404,7 @@ if (chipList) {
     chip.textContent = char;
     chip.addEventListener('click', () => {
       if (input) input.value = char;
-      loadCharacter(char);
+      loadManualCharacter(char);
     });
     chipList.appendChild(chip);
   });
@@ -220,7 +414,38 @@ button?.addEventListener('click', () => {
   if (!input) return;
   const value = input.value.trim();
   if (!value) return;
-  loadCharacter(value);
+  loadManualCharacter(value);
+});
+
+sequenceApplyBtn?.addEventListener('click', () => {
+  applySequenceFromInput();
+});
+
+sequenceNextBtn?.addEventListener('click', () => {
+  advanceSequenceChar();
+});
+
+sequenceSampleBtn?.addEventListener('click', () => {
+  if (sequenceInput) {
+    sequenceInput.value = defaultSequenceSample;
+  }
+  applySequenceFromInput();
+});
+
+sequenceResetBtn?.addEventListener('click', () => {
+  sequenceQueue = [];
+  sequenceIndex = -1;
+  if (sequenceInput) sequenceInput.value = '';
+  setStatus('已清空字帖内容，输入新的字帖后重新载入。');
+  setSessionStatus('字帖已清空，请输入新的汉字内容。');
+  updateSequenceStatus();
+});
+
+sequenceInput?.addEventListener('keydown', (event) => {
+  if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+    event.preventDefault();
+    applySequenceFromInput();
+  }
 });
 
 input?.addEventListener('keyup', (event) => {
@@ -232,11 +457,24 @@ input?.addEventListener('keyup', (event) => {
 
 restartQuizBtn?.addEventListener('click', () => {
   resetScorePanel();
-  quizController.start(currentWriter);
+  startQuiz();
 });
 
 hintToggleInput?.addEventListener('change', () => {
-  quizController.setHints(Boolean(hintToggleInput.checked), currentWriter);
+  practiceHintPreference = Boolean(hintToggleInput.checked);
+  if (sessionMode === 'practice') {
+    hintsEnabled = practiceHintPreference;
+    startQuiz();
+  }
+});
+
+modeButtons.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const targetMode = btn.dataset.mode as SessionMode | undefined;
+    if (targetMode) {
+      setSessionMode(targetMode);
+    }
+  });
 });
 
 const uploadForm = document.getElementById('upload-form') as HTMLFormElement | null;
