@@ -6,8 +6,7 @@
     "subset": "node tools/extract-subset.mjs",
     "demo:prepare": "node tools/extract-subset.mjs --list apps/hanzi-demo/local-list.txt --out apps/hanzi-demo/src/local-data.json",
     "demo:dev": "yarn run demo:prepare && yarn workspace hanzi-demo dev",
-    "demo:build": "yarn run demo:prepare && yarn workspace hanzi-demo build",
-    "renderers:build": "yarn workspace hanzi-writer-renderers build"
+    "demo:build": "yarn run demo:prepare && yarn workspace hanzi-demo build"
   },
   "workspaces": [
     "packages/*",

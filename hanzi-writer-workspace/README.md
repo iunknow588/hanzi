@@ -29,16 +29,6 @@ yarn demo:dev
 
 访问 http://localhost:4173 即可体验新的 Vite Demo，并验证 data-client 加载策略。生产构建可运行 `yarn demo:build`。
 
-## Renderers 构建
-
-`hanzi-writer-renderers` 已拆分为独立 workspace 包，如需产出可发布的 `dist/`：
-
-```
-yarn renderers:build
-```
-
-会生成 `dist/svg/*`、`dist/canvas/*` 等文件，并通过 package `exports` 提供 `hanzi-writer-renderers/svg` 等子路径。
-
 ## 数据子集工具
 
 使用 `tools/extract-subset.mjs` 按需生成本地字形数据：

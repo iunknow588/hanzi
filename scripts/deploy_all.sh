@@ -70,7 +70,6 @@ if [ "$HANZI_RUN_VERCEL" = "true" ]; then
     (
       cd "$PROJECT_ROOT/hanzi-writer-workspace" && \
       yarn install >/dev/null && \
-      yarn renderers:build >/dev/null && \
       yarn demo:build >/dev/null
     )
   else
