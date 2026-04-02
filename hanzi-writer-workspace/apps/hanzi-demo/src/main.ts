@@ -174,7 +174,7 @@ type ScoreEntry = {
   components: ScoreComponents;
 };
 
-type SessionMode = 'practice' | 'test';
+type SessionMode = 'practice' | 'test' | 'upload';
 
 type ScoreUpdatePayload = {
   overallScore: number;
@@ -396,10 +396,16 @@ const syncHintToggleState = () => {
   }
 };
 
-const startQuiz = () => {
+const stopQuiz = () => {
   if (!currentWriter) return;
   const maybeCancelable = currentWriter as HanziWriter & { cancelQuiz?: () => void };
   maybeCancelable.cancelQuiz?.();
+};
+
+const startQuiz = () => {
+  if (sessionMode === 'upload') return;
+  if (!currentWriter) return;
+  stopQuiz();
   const showHintAfterMisses =
     sessionMode === 'practice' && hintsEnabled ? 1 : Infinity;
   setSessionStatus(
@@ -428,9 +434,37 @@ const startQuiz = () => {
 
 const setSessionMode = (mode: SessionMode) => {
   if (sessionMode === mode) return;
+  const previousMode = sessionMode;
   sessionMode = mode;
   updateModeButtons();
   syncHintToggleState();
+  if (mode === 'upload') {
+    stopQuiz();
+    setWriterFeedback('上传模式：书写画布暂不可用。');
+    setSessionStatus('上传模式：请选择稿纸并等待 Hanzi Bridge 回传评分。');
+    if (jobStatusMessage) {
+      if (apiConfigured) {
+        jobStatusMessage.textContent = '正在等待 Hanzi Bridge 任务列表…';
+        jobStatusMessage.classList.remove('job-status-error');
+      } else {
+        jobStatusMessage.textContent = '未配置 Hanzi Bridge API，无法拉取任务。';
+        jobStatusMessage.classList.add('job-status-error');
+      }
+    }
+    if (jobListElm) jobListElm.innerHTML = '';
+    if (jobResultPanel) clearJobResult();
+    if (apiConfigured) startJobPolling();
+    return;
+  }
+  if (previousMode === 'upload') {
+    stopJobPolling();
+    if (jobStatusMessage) {
+      jobStatusMessage.textContent = '切换到上传模式后自动加载任务。';
+      jobStatusMessage.classList.remove('job-status-error');
+    }
+    if (jobListElm) jobListElm.innerHTML = '';
+    clearJobResult();
+  }
   setSessionStatus(
     mode === 'practice'
       ? '已切换到练习模式，可使用提示并即时评分。'
@@ -542,9 +576,16 @@ const jobResultLowScore = document.getElementById('job-result-low-score');
 const jobResultCells = document.getElementById('job-result-cells');
 const jobResultClose = document.getElementById('job-result-close');
 
-const apiBaseEnv = (import.meta.env.VITE_HANZI_API_BASE as string | undefined) || '';
-const apiBase = apiBaseEnv.endsWith('/') ? apiBaseEnv.slice(0, -1) : apiBaseEnv;
-const buildApiUrl = (pathname: string) => `${apiBase}${pathname}`;
+if (jobStatusMessage) {
+  jobStatusMessage.textContent = '切换到上传模式后自动加载任务。';
+}
+
+const rawApiBase = (import.meta.env.VITE_HANZI_API_BASE as string | undefined) || '';
+const normalizedApiBase = rawApiBase.endsWith('/') ? rawApiBase.slice(0, -1) : rawApiBase;
+const allowRelativeApi = import.meta.env.DEV;
+const apiConfigured = Boolean(normalizedApiBase) || allowRelativeApi;
+const buildApiUrl = (pathname: string) =>
+  normalizedApiBase ? `${normalizedApiBase}${pathname}` : pathname;
 
 const showJobMessage = (message: string, isError = false) => {
   if (!jobStatusMessage) return;
@@ -634,7 +675,7 @@ const renderJobs = (jobs: JobRecord[]) => {
 };
 
 const fetchJobs = async () => {
-  if (!jobListElm) return;
+  if (!jobListElm || sessionMode !== 'upload' || !apiConfigured) return;
   try {
     const response = await fetch(buildApiUrl('/api/jobs'));
     if (!response.ok) {
@@ -644,14 +685,24 @@ const fetchJobs = async () => {
     renderJobs(payload);
   } catch (error) {
     console.error('fetch jobs failed', error);
-    showJobMessage('无法拉取任务，请检查 Hanzi Bridge 是否运行。', true);
+    showJobMessage(
+      '无法拉取任务：请确认 Hanzi Bridge 已运行，并在 VITE_HANZI_API_BASE 中配置其地址。',
+      true,
+    );
   }
 };
 
 let jobPollHandle: number | null = null;
-const ensurePolling = () => {
-  if (!jobListElm || jobPollHandle) return;
+const startJobPolling = () => {
+  if (!jobListElm || jobPollHandle || !apiConfigured || sessionMode !== 'upload') return;
+  fetchJobs();
   jobPollHandle = window.setInterval(fetchJobs, 5000);
+};
+
+const stopJobPolling = () => {
+  if (!jobPollHandle) return;
+  window.clearInterval(jobPollHandle);
+  jobPollHandle = null;
 };
 
 const parseErrorResponse = async (response: Response) => {
@@ -666,7 +717,7 @@ const parseErrorResponse = async (response: Response) => {
 const clearJobResult = () => {
   if (jobResultTitle) jobResultTitle.textContent = '尚未选择任务';
   if (jobResultSummary) {
-    jobResultSummary.textContent = '选择已完成的任务即可查看详情。';
+    jobResultSummary.textContent = '切换到上传模式并选择已完成的任务即可查看详情。';
   }
   if (jobResultMetrics) jobResultMetrics.textContent = '';
   if (jobResultCells) {
@@ -785,6 +836,14 @@ const setUploading = (state: boolean) => {
 
 uploadForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (sessionMode !== 'upload') {
+    showJobMessage('请先切换到上传模式再上传稿纸。', true);
+    return;
+  }
+  if (!apiConfigured) {
+    showJobMessage('未配置 Hanzi Bridge API，无法上传稿纸。', true);
+    return;
+  }
   if (!pageFileInput || !pageFileInput.files || pageFileInput.files.length === 0) {
     showJobMessage('请选择稿纸文件后再上传。', true);
     return;
@@ -815,13 +874,16 @@ uploadForm?.addEventListener('submit', async (event) => {
 });
 
 refreshJobsBtn?.addEventListener('click', () => {
+  if (sessionMode !== 'upload') {
+    showJobMessage('请切换到上传模式后再刷新任务。');
+    return;
+  }
+  if (!apiConfigured) {
+    showJobMessage('未配置 Hanzi Bridge API，无法刷新任务。', true);
+    return;
+  }
   fetchJobs();
 });
-
-if (jobListElm) {
-  fetchJobs();
-  ensurePolling();
-}
 
 jobResultClose?.addEventListener('click', () => {
   clearJobResult();

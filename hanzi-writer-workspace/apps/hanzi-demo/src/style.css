@@ -174,6 +174,14 @@ select {
   gap: 0.75rem;
 }
 
+.writer-canvas-area {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 #writer {
   width: 360px;
   height: 360px;
@@ -250,7 +258,8 @@ select {
 }
 
 body[data-session-mode='practice'] [data-mode-panel='practice'],
-body[data-session-mode='test'] [data-mode-panel='test'] {
+body[data-session-mode='test'] [data-mode-panel='test'],
+body[data-session-mode='upload'] [data-mode-panel='upload'] {
   display: block;
 }
 
@@ -259,6 +268,19 @@ body[data-session-mode='practice'] [data-mode-only='practice'] {
 }
 
 body[data-session-mode='test'] [data-mode-only='test'] {
+  display: block;
+}
+
+body[data-session-mode='practice'] [data-mode-only='writer'],
+body[data-session-mode='test'] [data-mode-only='writer'] {
+  display: block;
+}
+
+body[data-session-mode='upload'] [data-mode-only='writer'] {
+  display: none;
+}
+
+body[data-session-mode='upload'] [data-mode-only='upload'] {
   display: block;
 }
 
