@@ -21,6 +21,7 @@ HANZI_VERCEL_PROJECT="${HANZI_VERCEL_PROJECT:-}"
 HANZI_VERCEL_PROJECT_ID="${HANZI_VERCEL_PROJECT_ID:-}"
 HANZI_VERCEL_ARCHIVE="${HANZI_VERCEL_ARCHIVE:-tgz}"
 HANZI_VERCEL_SOURCE_DIR="${HANZI_VERCEL_SOURCE_DIR:-hanzi-writer-workspace/apps/hanzi-demo}"
+HANZI_VERCEL_BUILD_DIR="${HANZI_VERCEL_BUILD_DIR:-dist}"
 SOURCE_PATH="$PROJECT_ROOT/$HANZI_VERCEL_SOURCE_DIR"
 LINK_FILE="$SOURCE_PATH/.vercel/project.json"
 
@@ -84,11 +85,16 @@ log_info "步骤 2: link 项目"
 vercel link --yes --scope "$HANZI_VERCEL_SCOPE" --project "$HANZI_VERCEL_PROJECT"
 verify_link_result
 
-log_info "步骤 3: 部署"
+if [ ! -d "$HANZI_VERCEL_BUILD_DIR" ]; then
+  log_error "部署目录缺少构建输出: $HANZI_VERCEL_BUILD_DIR"
+  exit 1
+fi
+
+log_info "步骤 3: 部署 ($HANZI_VERCEL_BUILD_DIR)"
 if [ "$ENVIRONMENT" = "production" ]; then
-  vercel deploy --prod --yes --scope "$HANZI_VERCEL_SCOPE" --logs --archive="$HANZI_VERCEL_ARCHIVE"
+  vercel deploy "$HANZI_VERCEL_BUILD_DIR" --prod --yes --scope "$HANZI_VERCEL_SCOPE" --logs --archive="$HANZI_VERCEL_ARCHIVE"
 else
-  vercel deploy --yes --scope "$HANZI_VERCEL_SCOPE" --logs --archive="$HANZI_VERCEL_ARCHIVE"
+  vercel deploy "$HANZI_VERCEL_BUILD_DIR" --yes --scope "$HANZI_VERCEL_SCOPE" --logs --archive="$HANZI_VERCEL_ARCHIVE"
 fi
 
 log_info "步骤 4: 展示最近部署"
