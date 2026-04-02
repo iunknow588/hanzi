@@ -1,5 +1,5 @@
 const DEFAULT_DATA_VERSION = '2.0.1';
-const DEFAULT_CDN_BASE = `https://cdn.jsdelivr.net/npm/hanzi-writer-data@${DEFAULT_DATA_VERSION}`;
+export const DEFAULT_CDN_BASE = `https://cdn.jsdelivr.net/npm/hanzi-writer-data@${DEFAULT_DATA_VERSION}`;
 
 const noop = () => {};
 
@@ -57,7 +57,7 @@ const resolveLocal = async (char, localResolver) => {
   return undefined;
 };
 
-const createCharDataLoader = (options = {}) => {
+export const createCharDataLoader = (options = {}) => {
   const {
     source = 'cdn',
     cdnBaseUrl = DEFAULT_CDN_BASE,
@@ -133,7 +133,7 @@ const createCharDataLoader = (options = {}) => {
   };
 };
 
-const loadMany = async (loader, chars = []) => {
+export const loadMany = async (loader, chars = []) => {
   const results = {};
   for (const char of chars) {
     try {
@@ -143,10 +143,4 @@ const loadMany = async (loader, chars = []) => {
     }
   }
   return results;
-};
-
-module.exports = {
-  createCharDataLoader,
-  loadMany,
-  DEFAULT_CDN_BASE,
 };

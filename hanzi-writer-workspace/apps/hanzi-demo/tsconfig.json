@@ -10,7 +10,14 @@
     "types": [
       "vite/client"
     ],
-    "baseUrl": "."
+    "baseUrl": ".",
+    "paths": {
+      "hanzi-writer": ["../../packages/hanzi-writer/src/HanziWriter.ts"],
+      "hanzi-writer/*": ["../../packages/hanzi-writer/src/*"],
+      "hanzi-writer-data-client": ["../../packages/data-client/index.js"],
+      "hanzi-writer-data": ["../../packages/hanzi-writer-data/data"],
+      "hanzi-writer-data/*": ["../../packages/hanzi-writer-data/data/*"]
+    }
   },
   "include": ["src"]
 }

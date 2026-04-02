@@ -2,66 +2,66 @@
   "name": "hanzi-writer-renderers",
   "version": "0.1.0",
   "description": "SVG/Canvas renderer implementations for Hanzi Writer, extracted for reuse",
-  "main": "dist/index.js",
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "src/renderers/index.ts",
+  "module": "src/renderers/index.ts",
+  "types": "src/renderers/index.ts",
   "license": "MIT",
   "private": false,
   "sideEffects": false,
   "files": [
-    "dist"
+    "src"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.js"
+      "types": "./src/renderers/index.ts",
+      "import": "./src/renderers/index.ts",
+      "require": "./src/renderers/index.ts"
     },
     "./svg": {
-      "types": "./dist/svg/index.d.ts",
-      "import": "./dist/svg/index.js",
-      "require": "./dist/svg/index.js"
+      "types": "./src/renderers/svg/index.ts",
+      "import": "./src/renderers/svg/index.ts",
+      "require": "./src/renderers/svg/index.ts"
     },
     "./canvas": {
-      "types": "./dist/canvas/index.d.ts",
-      "import": "./dist/canvas/index.js",
-      "require": "./dist/canvas/index.js"
+      "types": "./src/renderers/canvas/index.ts",
+      "import": "./src/renderers/canvas/index.ts",
+      "require": "./src/renderers/canvas/index.ts"
     },
     "./HanziWriterRendererBase": {
-      "types": "./dist/HanziWriterRendererBase.d.ts",
-      "import": "./dist/HanziWriterRendererBase.js",
-      "require": "./dist/HanziWriterRendererBase.js"
+      "types": "./src/renderers/HanziWriterRendererBase.ts",
+      "import": "./src/renderers/HanziWriterRendererBase.ts",
+      "require": "./src/renderers/HanziWriterRendererBase.ts"
     },
     "./RenderTargetBase": {
-      "types": "./dist/RenderTargetBase.d.ts",
-      "import": "./dist/RenderTargetBase.js",
-      "require": "./dist/RenderTargetBase.js"
+      "types": "./src/renderers/RenderTargetBase.ts",
+      "import": "./src/renderers/RenderTargetBase.ts",
+      "require": "./src/renderers/RenderTargetBase.ts"
     },
     "./StrokeRendererBase": {
-      "types": "./dist/StrokeRendererBase.d.ts",
-      "import": "./dist/StrokeRendererBase.js",
-      "require": "./dist/StrokeRendererBase.js"
+      "types": "./src/renderers/StrokeRendererBase.ts",
+      "import": "./src/renderers/StrokeRendererBase.ts",
+      "require": "./src/renderers/StrokeRendererBase.ts"
     }
   },
   "typesVersions": {
     "*": {
       "svg": [
-        "dist/svg/index.d.ts"
+        "src/renderers/svg/index.ts"
       ],
       "canvas": [
-        "dist/canvas/index.d.ts"
+        "src/renderers/canvas/index.ts"
       ],
       "HanziWriterRendererBase": [
-        "dist/HanziWriterRendererBase.d.ts"
+        "src/renderers/HanziWriterRendererBase.ts"
       ],
       "RenderTargetBase": [
-        "dist/RenderTargetBase.d.ts"
+        "src/renderers/RenderTargetBase.ts"
       ],
       "StrokeRendererBase": [
-        "dist/StrokeRendererBase.d.ts"
+        "src/renderers/StrokeRendererBase.ts"
       ]
     }
   }
