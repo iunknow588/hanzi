@@ -10,17 +10,9 @@
     <div id="app">
       <section class="controls">
         <h1>汉字笔顺练习 &amp; 评分</h1>
-        <p>左侧设置练习内容，右侧实时书写并查看评分，支持整页上传排队评分。</p>
+        <p>左侧设置练习内容，右侧实时书写并查看评分，或切换到上传模式提交整页稿纸。</p>
 
-        <div class="form-row">
-          <div class="form-field">
-            <label for="char-input">立即加载单个汉字</label>
-            <input id="char-input" type="text" maxlength="1" placeholder="输入单个汉字" />
-          </div>
-          <button type="button" id="load-btn">加载</button>
-        </div>
-
-        <div class="copybook-panel">
+        <div class="copybook-panel" data-mode-only="writer">
           <div class="copybook-panel__header">
             <label for="sequence-input">字帖内容（可批量输入多个汉字）</label>
             <button type="button" id="sequence-sample" class="btn-secondary btn-small">填充示例</button>
@@ -47,12 +39,12 @@
           </div>
         </div>
 
-        <div class="local-subset">
-          <strong>本地缓存字符：</strong>
+        <div class="default-library" data-mode-only="writer">
+          <strong>默认字库示例：</strong>
           <div id="local-chip-list" class="chip-list"></div>
         </div>
 
-        <div class="score-panel">
+        <div class="score-panel" data-mode-only="writer">
           <div class="score-panel__header">
             <span>实时评分</span>
             <strong><span id="score-total-value">--</span></strong>

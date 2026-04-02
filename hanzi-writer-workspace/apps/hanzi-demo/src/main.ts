@@ -12,8 +12,6 @@ const writerContainer = document.getElementById('writer');
 const statusElm = document.getElementById('loader-status');
 const scoreTotalElm = document.getElementById('score-total-value');
 const scoreListElm = document.getElementById('score-strokes');
-const input = document.getElementById('char-input') as HTMLInputElement | null;
-const button = document.getElementById('load-btn') as HTMLButtonElement | null;
 const chipList = document.getElementById('local-chip-list');
 const restartQuizBtn = document.getElementById('restart-quiz');
 const hintToggleInput = document.getElementById('hint-toggle') as HTMLInputElement | null;
@@ -323,7 +321,6 @@ const loadSequenceCharAt = (nextIndex: number) => {
   }
   sequenceIndex = nextIndex;
   const targetChar = sequenceQueue[nextIndex];
-  if (input) input.value = targetChar;
   updateSequenceStatus();
   setStatus(`序列 ${nextIndex + 1}/${sequenceQueue.length}：${targetChar}`);
   setSessionStatus(`准备练习：第 ${nextIndex + 1} 个字 ${targetChar}`);
@@ -360,14 +357,6 @@ const advanceSequenceChar = () => {
   }
   loadSequenceCharAt(nextIndex);
   return true;
-};
-
-const loadManualCharacter = (value: string) => {
-  if (!value) return;
-  sequenceIndex = -1;
-  updateSequenceStatus();
-  setSessionStatus('单字练习：已切换到自定义汉字。');
-  loadCharacter(value);
 };
 
 let currentWriter: HanziWriter;
@@ -480,24 +469,29 @@ updateModeButtons();
 loadCharacter('我');
 
 if (chipList) {
-  Object.keys(localDataMap).forEach((char) => {
+  const defaultChars = Object.keys(localDataMap);
+  defaultChars.forEach((char) => {
     const chip = document.createElement('span');
     chip.className = 'chip';
     chip.textContent = char;
     chip.addEventListener('click', () => {
-      if (input) input.value = char;
-      loadManualCharacter(char);
+      if (sequenceInput) {
+        const existing = sequenceInput.value.replace(/\s+/g, '');
+        sequenceInput.value = existing ? `${existing}${char}` : char;
+        applySequenceFromInput();
+      } else {
+        sequenceQueue = [char];
+        sequenceIndex = -1;
+        updateSequenceStatus();
+        loadSequenceCharAt(0);
+      }
     });
     chipList.appendChild(chip);
   });
+  if (sequenceInput && !sequenceInput.value.trim()) {
+    sequenceInput.value = defaultChars.join('');
+  }
 }
-
-button?.addEventListener('click', () => {
-  if (!input) return;
-  const value = input.value.trim();
-  if (!value) return;
-  loadManualCharacter(value);
-});
 
 sequenceApplyBtn?.addEventListener('click', () => {
   applySequenceFromInput();
@@ -527,13 +521,6 @@ sequenceInput?.addEventListener('keydown', (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
     event.preventDefault();
     applySequenceFromInput();
-  }
-});
-
-input?.addEventListener('keyup', (event) => {
-  if (event.key === 'Enter') {
-    event.preventDefault();
-    button?.click();
   }
 });
 
