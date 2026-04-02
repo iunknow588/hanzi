@@ -252,6 +252,7 @@ const jobResultPanel = document.getElementById('job-result-panel');
 const jobResultTitle = document.getElementById('job-result-title');
 const jobResultSummary = document.getElementById('job-result-summary');
 const jobResultMetrics = document.getElementById('job-result-metrics');
+const jobResultLowScore = document.getElementById('job-result-low-score');
 const jobResultCells = document.getElementById('job-result-cells');
 const jobResultClose = document.getElementById('job-result-close');
 
@@ -406,6 +407,28 @@ const renderJobResult = (result: JobResultPayload | null) => {
         ? `${formatScore(result.metrics.averageScore)}`
         : '--';
     jobResultMetrics.textContent = `综合平均分：${avg}`;
+  }
+  if (jobResultLowScore) {
+    jobResultLowScore.innerHTML = '';
+    const highlights = result.cells
+      .filter((cell) => typeof cell.score?.overall === 'number')
+      .sort((a, b) => (a.score!.overall! > b.score!.overall! ? 1 : -1))
+      .slice(0, 3);
+    if (!highlights.length) {
+      jobResultLowScore.innerHTML = '<p class="job-result__placeholder">暂无低分提示</p>';
+    } else {
+      const title = document.createElement('h4');
+      title.textContent = '低分提示';
+      const list = document.createElement('ul');
+      highlights.forEach((cell) => {
+        const li = document.createElement('li');
+        const label = `${cell.id} (${cell.char || '未知'})`;
+        const scoreText = formatScore(cell.score!.overall!);
+        li.textContent = `${label} · 总分 ${scoreText}`;
+        list.appendChild(li);
+      });
+      jobResultLowScore.append(title, list);
+    }
   }
   if (jobResultCells) {
     jobResultCells.innerHTML = '';

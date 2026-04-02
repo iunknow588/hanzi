@@ -71,17 +71,20 @@
             </div>
             <p id="job-status-message" class="job-status-message">尚未拉取数据</p>
             <ul id="job-list-entries" class="job-list__items"></ul>
-            <div class="job-result" id="job-result-panel">
-              <div class="job-result__header">
-                <strong id="job-result-title">尚未选择任务</strong>
-                <button id="job-result-close" type="button" class="btn-secondary btn-small">清空</button>
-              </div>
-              <p id="job-result-summary" class="job-result__summary">选择已完成的任务即可查看详情。</p>
-              <div class="job-result__metrics" id="job-result-metrics"></div>
-              <div class="job-result__cells">
-                <table>
-                  <thead>
-                    <tr>
+      <div class="job-result" id="job-result-panel">
+        <div class="job-result__header">
+          <strong id="job-result-title">尚未选择任务</strong>
+          <button id="job-result-close" type="button" class="btn-secondary btn-small">清空</button>
+        </div>
+        <p id="job-result-summary" class="job-result__summary">选择已完成的任务即可查看详情。</p>
+        <div class="job-result__metrics" id="job-result-metrics"></div>
+        <div class="job-result__low-score" id="job-result-low-score">
+          <p class="job-result__placeholder">暂无低分提示</p>
+        </div>
+        <div class="job-result__cells">
+          <table>
+            <thead>
+              <tr>
                       <th>格子</th>
                       <th>字符</th>
                       <th>总体</th>

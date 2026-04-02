@@ -23,6 +23,7 @@ const config = {
   scoreScript:
     process.env.HANZI_SCORE_SCRIPT || path.resolve(__dirname, './skills/score-standard.js'),
   dataRoot: process.env.HANZI_DATA_ROOT || path.resolve(__dirname, '../../../hanzi-writer-data-master/data'),
+  retainJobs: parseInt(process.env.HANZI_RETAIN_COMPLETED_JOBS || '20', 10),
 };
 
 ensureDir(config.jobsRoot);
@@ -76,6 +77,20 @@ const enqueueJob = (jobConfig) => {
   processQueue();
 };
 
+const pruneCompletedJobs = () => {
+  if (!config.retainJobs || config.retainJobs <= 0) return;
+  const succeeded = Array.from(jobStore.values())
+    .filter((job) => job.status === 'succeeded')
+    .sort((a, b) => new Date(b.finishedAt || b.updatedAt).getTime() - new Date(a.finishedAt || a.updatedAt).getTime());
+  if (succeeded.length <= config.retainJobs) return;
+  const toRemove = succeeded.slice(config.retainJobs);
+  toRemove.forEach((job) => {
+    jobStore.delete(job.jobId);
+    const dir = path.join(config.jobsRoot, job.jobId);
+    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+  });
+};
+
 const processQueue = () => {
   if (isProcessing) return;
   const nextJob = jobQueue.shift();
@@ -122,6 +137,7 @@ const processQueue = () => {
     })
     .finally(() => {
       isProcessing = false;
+      pruneCompletedJobs();
       processQueue();
     });
 };
