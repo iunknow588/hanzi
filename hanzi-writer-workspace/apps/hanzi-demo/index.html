@@ -91,11 +91,15 @@
             </label>
             <p class="test-mode-hint" data-mode-only="test">测试模式下自动禁用提示，完成整字后进入下一格。</p>
           </div>
-          <div class="writer-score-log">
-            <h3>笔画得分记录</h3>
-            <ul id="writer-score-log-list" class="writer-score-log__list">
-              <li>等待书写…</li>
-            </ul>
+          <div class="stroke-history" data-mode-only="writer">
+            <div class="stroke-history__header">
+              <h3>笔画对比记录</h3>
+              <button type="button" id="stroke-history-clear" class="btn-secondary btn-small">清除记录</button>
+            </div>
+            <p class="stroke-history__hint">浅灰：标准笔画 · 红色：你的笔画，最多保留最近 50 条。</p>
+            <div id="stroke-history-list" class="stroke-history__list">
+              <p class="stroke-history__placeholder">等待书写…</p>
+            </div>
           </div>
         </div>
         <section class="upload-panel" data-mode-only="upload">

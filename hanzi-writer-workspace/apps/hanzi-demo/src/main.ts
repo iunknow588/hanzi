@@ -1,4 +1,5 @@
 import HanziWriter from 'hanzi-writer';
+import type { StrokeData } from 'hanzi-writer';
 import { createCharDataLoader } from 'hanzi-writer-data-client';
 import localDataMap from './local-data.json';
 import './style.css';
@@ -32,8 +33,9 @@ const modePanelSections = Array.from(
   document.querySelectorAll<HTMLElement>('[data-mode-panel]'),
 );
 const writerScoreLogList = document.getElementById(
-  'writer-score-log-list',
-) as HTMLUListElement | null;
+  'stroke-history-list',
+) as HTMLElement | null;
+const strokeHistoryClearBtn = document.getElementById('stroke-history-clear');
 
 if (!writerContainer) {
   throw new Error('#writer element missing');
@@ -77,6 +79,18 @@ let sequenceQueue: string[] = [];
 let sequenceIndex = -1;
 
 const bodyElm = document.body;
+type StrokeHistoryEntry = {
+  id: string;
+  char: string;
+  strokeIndex: number;
+  defaultPath?: string;
+  userPath: string;
+  timestamp: number;
+};
+
+const STROKE_HISTORY_LIMIT = 50;
+const strokeHistory: StrokeHistoryEntry[] = [];
+let currentCharStrokePaths: string[] = [];
 
 const renderSequencePreview = () => {
   if (!sequencePreviewElm) return;
@@ -131,32 +145,67 @@ const applyModePanels = () => {
   });
 };
 
-const writerScoreLogInitial = '<li>等待书写…</li>';
-const resetWriterScoreLog = () => {
-  if (writerScoreLogList) {
-    writerScoreLogList.innerHTML = writerScoreLogInitial;
+const renderStrokeHistory = () => {
+  if (!writerScoreLogList) return;
+  if (!strokeHistory.length) {
+    writerScoreLogList.innerHTML = '<p class="stroke-history__placeholder">等待书写…</p>';
+    return;
   }
+  writerScoreLogList.innerHTML = '';
+  strokeHistory.forEach((entry) => {
+    const item = document.createElement('div');
+    item.className = 'stroke-history__item';
+    const meta = document.createElement('div');
+    meta.className = 'stroke-history__meta';
+    meta.innerHTML = `<span>${entry.char} · 第 ${entry.strokeIndex + 1} 笔</span>
+      <span>${new Date(entry.timestamp).toLocaleTimeString()}</span>`;
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('viewBox', '0 0 1024 1024');
+    svg.setAttribute('class', 'stroke-history__canvas');
+    if (entry.defaultPath) {
+      const standardPath = document.createElementNS(svgNS, 'path');
+      standardPath.setAttribute('d', entry.defaultPath);
+      standardPath.setAttribute('fill', '#e2e8f0');
+      standardPath.setAttribute('stroke', '#cbd5f5');
+      standardPath.setAttribute('stroke-width', '20');
+      svg.appendChild(standardPath);
+    }
+    const userPath = document.createElementNS(svgNS, 'path');
+    userPath.setAttribute('d', entry.userPath);
+    userPath.setAttribute('fill', 'none');
+    userPath.setAttribute('stroke', '#ef4444');
+    userPath.setAttribute('stroke-width', '60');
+    userPath.setAttribute('stroke-linecap', 'round');
+    userPath.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(userPath);
+    item.append(meta, svg);
+    writerScoreLogList.appendChild(item);
+  });
 };
 
-const pushWriterScoreLog = (payload: ScoreUpdatePayload) => {
-  if (!writerScoreLogList) return;
-  if (writerScoreLogList.innerHTML.includes('等待书写')) {
-    writerScoreLogList.innerHTML = '';
+const handleCorrectStroke = (strokeData: StrokeData) => {
+  if (!strokeData?.drawnPath?.pathString) return;
+  const entry: StrokeHistoryEntry = {
+    id: `${strokeData.character}-${strokeData.strokeNum}-${Date.now()}`,
+    char: strokeData.character,
+    strokeIndex: strokeData.strokeNum,
+    defaultPath: currentCharStrokePaths[strokeData.strokeNum],
+    userPath: strokeData.drawnPath.pathString,
+    timestamp: Date.now(),
+  };
+  strokeHistory.unshift(entry);
+  if (strokeHistory.length > STROKE_HISTORY_LIMIT) {
+    strokeHistory.pop();
   }
-  const li = document.createElement('li');
-  const title = document.createElement('strong');
-  title.textContent = `第 ${payload.strokeIndex + 1} 笔`;
-  const detail = document.createElement('span');
-  detail.textContent = `得分 ${formatScore(payload.score.overall)} · 当前总分 ${formatScore(
-    payload.overallScore,
-  )}`;
-  li.append(title, document.createTextNode(' — '), detail);
-  writerScoreLogList.prepend(li);
-  const maxEntries = 8;
-  while (writerScoreLogList.children.length > maxEntries) {
-    writerScoreLogList.removeChild(writerScoreLogList.lastElementChild!);
-  }
+  renderStrokeHistory();
 };
+
+renderStrokeHistory();
+strokeHistoryClearBtn?.addEventListener('click', () => {
+  strokeHistory.length = 0;
+  renderStrokeHistory();
+});
 
 type ScoreComponents = {
   endpoints: number;
@@ -224,7 +273,6 @@ const resetScorePanel = () => {
   if (scoreListElm) {
     scoreListElm.innerHTML = '<li class="score-pending">等待评分…</li>';
   }
-  resetWriterScoreLog();
 };
 
 const formatScore = (value: number) => `${Math.round(value * 100)}`;
@@ -277,7 +325,6 @@ const handleScoreUpdate = (payload: ScoreUpdatePayload) => {
       payload.overallScore,
     )}。`,
   );
-  pushWriterScoreLog(payload);
 };
 
 const createWriter = (char: string) => {
@@ -303,12 +350,22 @@ const loadCharacter = (char: string) => {
     .then(() => {
       setStatus(`已加载 ${char}`);
       setWriterFeedback(`已切换到 ${char}，点击画布即可开始。`);
+      currentWriter
+        .getCharacterData()
+        .then((data) => {
+          currentCharStrokePaths = data.strokes.map((stroke) => stroke.path);
+        })
+        .catch((error) => {
+          console.warn('获取字形数据失败', error);
+          currentCharStrokePaths = [];
+        });
       startQuiz();
     })
     .catch((error) => {
       console.error(error);
       setStatus(`加载 ${char} 失败，重建画布...`);
       currentWriter = createWriter(char);
+      currentCharStrokePaths = [];
       startQuiz();
     });
 };
@@ -405,6 +462,7 @@ const startQuiz = () => {
   currentWriter.quiz({
     showHintAfterMisses,
     highlightOnComplete: true,
+    onCorrectStroke: handleCorrectStroke,
     onComplete: () => {
       if (sessionMode === 'practice') {
         setSessionStatus('该字练习完成，可继续书写或切换其它汉字。');
