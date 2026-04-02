@@ -15,6 +15,11 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ENV_FILE="$PROJECT_ROOT/.env.vercel"
+if [ -f "$ENV_FILE" ]; then
+  # shellcheck disable=SC1090
+  set -a && source "$ENV_FILE" && set +a
+fi
 ENVIRONMENT="${1:-preview}"
 HANZI_VERCEL_SCOPE="${HANZI_VERCEL_SCOPE:-}"
 HANZI_VERCEL_PROJECT="${HANZI_VERCEL_PROJECT:-}"

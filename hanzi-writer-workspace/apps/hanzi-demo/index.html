@@ -101,7 +101,16 @@
           </div>
         </div>
       </div>
-      <div id="writer"></div>
+      <div class="writer-panel">
+        <div id="writer"></div>
+        <div class="writer-actions">
+          <button id="restart-quiz" type="button" class="btn-secondary btn-small">重新练习</button>
+          <label class="hint-toggle">
+            <input id="hint-toggle" type="checkbox" checked />
+            错笔后显示提示
+          </label>
+        </div>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

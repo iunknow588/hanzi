@@ -130,9 +130,40 @@ const handleScoreUpdate = (payload: ScoreUpdatePayload) => {
   renderScoreHistory(payload.history);
 };
 
+const createQueuedQuizStarter = () => {
+  let hintsEnabled = true;
+
+  const start = (writer: HanziWriter) => {
+    const maybeCancelable = writer as HanziWriter & { cancelQuiz?: () => void };
+    maybeCancelable.cancelQuiz?.();
+    writer.quiz({
+      showHintAfterMisses: hintsEnabled ? 1 : Infinity,
+      highlightOnComplete: true,
+      onComplete: () => {
+        setTimeout(() => {
+          writer.quiz({
+            showHintAfterMisses: hintsEnabled ? 1 : Infinity,
+            highlightOnComplete: true,
+          });
+        }, 500);
+      },
+    });
+  };
+
+  return {
+    start,
+    setHints(value: boolean, writer: HanziWriter) {
+      hintsEnabled = value;
+      start(writer);
+    },
+  };
+};
+
+const quizController = createQueuedQuizStarter();
+
 const createWriter = (char: string) => {
   writerContainer.innerHTML = '';
-  return HanziWriter.create(writerContainer, char, {
+  const writer = HanziWriter.create(writerContainer, char, {
     width: 360,
     height: 360,
     padding: 10,
@@ -140,6 +171,8 @@ const createWriter = (char: string) => {
     enableLocalScoring: true,
     onScoreUpdate: handleScoreUpdate,
   });
+  quizController.start(writer);
+  return writer;
 };
 
 const loadCharacter = (char: string) => {
@@ -149,7 +182,10 @@ const loadCharacter = (char: string) => {
   setStatus(hasLocal ? `使用本地缓存加载 ${char}` : `从 CDN 拉取 ${char} 数据...`);
   currentWriter
     .setCharacter(char)
-    .then(() => setStatus(`已加载 ${char}`))
+    .then(() => {
+      setStatus(`已加载 ${char}`);
+      quizController.start(currentWriter);
+    })
     .catch((error) => {
       console.error(error);
       setStatus(`加载 ${char} 失败，重建画布...`);
@@ -164,6 +200,8 @@ loadCharacter('我');
 const input = document.getElementById('char-input') as HTMLInputElement | null;
 const button = document.getElementById('load-btn');
 const chipList = document.getElementById('local-chip-list');
+const restartQuizBtn = document.getElementById('restart-quiz');
+const hintToggleInput = document.getElementById('hint-toggle') as HTMLInputElement | null;
 
 if (chipList) {
   Object.keys(localDataMap).forEach((char) => {
@@ -183,6 +221,22 @@ button?.addEventListener('click', () => {
   const value = input.value.trim();
   if (!value) return;
   loadCharacter(value);
+});
+
+input?.addEventListener('keyup', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    button?.click();
+  }
+});
+
+restartQuizBtn?.addEventListener('click', () => {
+  resetScorePanel();
+  quizController.start(currentWriter);
+});
+
+hintToggleInput?.addEventListener('change', () => {
+  quizController.setHints(Boolean(hintToggleInput.checked), currentWriter);
 });
 
 const uploadForm = document.getElementById('upload-form') as HTMLFormElement | null;

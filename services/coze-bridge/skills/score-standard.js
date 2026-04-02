@@ -62,38 +62,82 @@ if (!pipeline) {
   throw new Error(`无法读取切分结果：${inputPath}`);
 }
 
-const cells = pipeline.cells || pipeline.results || [];
+const normalizeUnitScore = (value) => {
+  if (typeof value !== 'number') return null;
+  if (value > 1) return Math.min(value / 100, 1);
+  return value;
+};
 
-const scoredCells = cells.map((cell, index) => {
-  const standard = loadStandardData(cell.char);
-  const strokeCount = standard?.strokes ? standard.strokes.length : null;
-  const medianPoints = standard?.medians;
-  const baseScore = cell.score?.overall ?? cell.scores?.overall ?? null;
+const convertLegacyCells = (cells) =>
+  cells.map((cell, index) => {
+    const standard = loadStandardData(cell.char);
+    const strokeCount = standard?.strokes ? standard.strokes.length : null;
+    const medianPoints = standard?.medians;
+    const baseScore = cell.score?.overall ?? cell.scores?.overall ?? null;
 
-  const derivedScore =
-    typeof baseScore === 'number'
-      ? baseScore
-      : strokeCount
-      ? Math.min(1, (cell.strokePoints?.length || strokeCount) / strokeCount)
-      : 0;
+    const derivedScore =
+      typeof baseScore === 'number'
+        ? baseScore
+        : strokeCount
+        ? Math.min(1, (cell.strokePoints?.length || strokeCount) / strokeCount)
+        : 0;
 
-  return {
-    id: cell.id || cell.cellId || `cell-${index}`,
-    char: cell.char || cell.character || '',
-    normalizedSvg: cell.normalizedSvg || cell.svgPath || null,
-    maskImage: cell.maskPath || cell.maskImage || null,
-    score: {
-      overall: derivedScore,
-      endpoints: cell.score?.endpoints ?? null,
-      direction: cell.score?.direction ?? null,
-      shape: cell.score?.shape ?? null,
-      order: cell.score?.order ?? null,
-    },
-    standardStrokeCount: strokeCount,
-    standardMedians: medianPoints || null,
-    sourceScore: cell.score || cell.scores || null,
-  };
-});
+    return {
+      id: cell.id || cell.cellId || `cell-${index}`,
+      char: cell.char || cell.character || '',
+      normalizedSvg: cell.normalizedSvg || cell.svgPath || null,
+      maskImage: cell.maskPath || cell.maskImage || null,
+      score: {
+        overall: derivedScore,
+        endpoints: cell.score?.endpoints ?? null,
+        direction: cell.score?.direction ?? null,
+        shape: cell.score?.shape ?? null,
+        order: cell.score?.order ?? null,
+      },
+      standardStrokeCount: strokeCount,
+      standardMedians: medianPoints || null,
+      sourceScore: cell.score || cell.scores || null,
+    };
+  });
+
+const convertPluginResults = (results) =>
+  results.map((cell, index) => {
+    const standard = loadStandardData(cell.target_char);
+    const strokeCount = standard?.strokes ? standard.strokes.length : null;
+    const breakdown = cell.score_breakdown || cell.sub_scores || {};
+    const derivedScore = normalizeUnitScore(cell.total_score);
+
+    return {
+      id: cell.cell_id || `cell-${index}`,
+      char: cell.target_char || '',
+      normalizedSvg: cell.features?.normalized_svg || null,
+      maskImage: cell.features?.mask_path || null,
+      score: {
+        overall: derivedScore,
+        endpoints: normalizeUnitScore(breakdown.structure_template ?? breakdown.structure),
+        direction: normalizeUnitScore(breakdown.structure_accuracy ?? breakdown.structure),
+        shape: normalizeUnitScore(breakdown.similarity ?? breakdown.morphology_similarity),
+        order: normalizeUnitScore(breakdown.stroke_quality),
+      },
+      standardStrokeCount: strokeCount,
+      standardMedians: standard?.medians || null,
+      sourceScore: {
+        totalScore: cell.total_score,
+        scoreLevel: cell.score_level,
+        subScores: cell.sub_scores,
+        penalties: cell.penalties,
+        diagnostics: cell.norm_diagnostics,
+      },
+    };
+  });
+
+const pluginResults = Array.isArray(pipeline.scoring?.results) ? pipeline.scoring.results : null;
+const rawCells = pipeline.cells || pipeline.results || [];
+
+const scoredCells = (pluginResults && pluginResults.length > 0
+  ? convertPluginResults(pluginResults)
+  : convertLegacyCells(rawCells)
+);
 
 const validScores = scoredCells
   .map((cell) => cell.score?.overall)

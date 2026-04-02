@@ -36,4 +36,4 @@ HANZI_VERCEL_PROJECT=hanzi-demo \
 | `HANZI_VERCEL_ARCHIVE` | `vercel deploy --archive` 参数 | `tgz` |
 | `HANZI_VERCEL_SOURCE_DIR` | 需要部署的子目录（相对 `/home/lc/luckee_dao/hanzi`） | `hanzi-writer-workspace/apps/hanzi-demo` |
 
-> 脚本会在首次执行时自动创建 `.vercel/project.json` 并记录 link 信息。若需重新绑定，可删除该文件或执行 `vercel logout && vercel login` 后重新运行脚本。
+> 推荐在仓库根目录创建 `.env.vercel`（例如 `HANZI_VERCEL_SCOPE=cdao` 等），脚本会自动加载该文件。首次 link 成功后会生成 `.vercel/project.json`，若需重新绑定，可删除该文件或执行 `vercel logout && vercel login` 后重新运行脚本。
