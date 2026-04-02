@@ -1,0 +1,97 @@
+#!/bin/bash
+
+# Hanzi Workspace Vercel 部署脚本
+
+set -e
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ENVIRONMENT="${1:-preview}"
+HANZI_VERCEL_SCOPE="${HANZI_VERCEL_SCOPE:-}"
+HANZI_VERCEL_PROJECT="${HANZI_VERCEL_PROJECT:-}"
+HANZI_VERCEL_PROJECT_ID="${HANZI_VERCEL_PROJECT_ID:-}"
+HANZI_VERCEL_ARCHIVE="${HANZI_VERCEL_ARCHIVE:-tgz}"
+HANZI_VERCEL_SOURCE_DIR="${HANZI_VERCEL_SOURCE_DIR:-hanzi-writer-workspace/apps/hanzi-demo}"
+SOURCE_PATH="$PROJECT_ROOT/$HANZI_VERCEL_SOURCE_DIR"
+LINK_FILE="$SOURCE_PATH/.vercel/project.json"
+
+if [ -z "$HANZI_VERCEL_SCOPE" ] || [ -z "$HANZI_VERCEL_PROJECT" ]; then
+  log_error "请通过 HANZI_VERCEL_SCOPE/HANZI_VERCEL_PROJECT 指定 Vercel 目标"
+  exit 1
+fi
+
+if [ ! -d "$SOURCE_PATH" ]; then
+  log_error "部署目录不存在: $SOURCE_PATH"
+  exit 1
+fi
+
+if ! command -v vercel >/dev/null 2>&1; then
+  log_error "未检测到 vercel CLI，请先执行: npm i -g vercel"
+  exit 1
+fi
+
+extract_field() {
+  local file="$1"
+  local field="$2"
+  if [ ! -f "$file" ]; then
+    echo ""
+    return
+  fi
+  sed -n "s/.*\"$field\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "$file" | head -n1
+}
+
+verify_link_result() {
+  local project_id project_name
+  project_id="$(extract_field "$LINK_FILE" "projectId")"
+  project_name="$(extract_field "$LINK_FILE" "projectName")"
+  if [ -z "$project_name" ]; then
+    log_error "无法读取 link 结果，缺少 projectName"
+    exit 1
+  fi
+  if [ "$project_name" != "$HANZI_VERCEL_PROJECT" ]; then
+    log_error "link 后项目名不匹配：$project_name vs $HANZI_VERCEL_PROJECT"
+    exit 1
+  fi
+  if [ -n "$HANZI_VERCEL_PROJECT_ID" ] && [ "$project_id" != "$HANZI_VERCEL_PROJECT_ID" ]; then
+    log_error "link 后 projectId 不匹配：$project_id vs $HANZI_VERCEL_PROJECT_ID"
+    exit 1
+  fi
+}
+
+cd "$SOURCE_PATH"
+
+log_info "部署目录: $SOURCE_PATH"
+log_info "Vercel Scope: $HANZI_VERCEL_SCOPE"
+log_info "Vercel Project: $HANZI_VERCEL_PROJECT"
+log_info "环境: $ENVIRONMENT"
+
+log_info "步骤 1: 验证远端项目"
+if ! vercel project inspect "$HANZI_VERCEL_PROJECT" --scope "$HANZI_VERCEL_SCOPE" >/dev/null 2>&1; then
+  log_error "Vercel 项目不存在或无权限: $HANZI_VERCEL_SCOPE/$HANZI_VERCEL_PROJECT"
+  exit 1
+fi
+
+log_info "步骤 2: link 项目"
+vercel link --yes --scope "$HANZI_VERCEL_SCOPE" --project "$HANZI_VERCEL_PROJECT"
+verify_link_result
+
+log_info "步骤 3: 部署"
+if [ "$ENVIRONMENT" = "production" ]; then
+  vercel deploy --prod --yes --scope "$HANZI_VERCEL_SCOPE" --logs --archive="$HANZI_VERCEL_ARCHIVE"
+else
+  vercel deploy --yes --scope "$HANZI_VERCEL_SCOPE" --logs --archive="$HANZI_VERCEL_ARCHIVE"
+fi
+
+log_info "步骤 4: 展示最近部署"
+vercel list --yes --scope "$HANZI_VERCEL_SCOPE" | head -n 20 || true
+
+log_info "Vercel 部署完成"

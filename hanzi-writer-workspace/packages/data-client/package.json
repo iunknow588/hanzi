@@ -1,0 +1,15 @@
+{
+  "name": "hanzi-writer-data-client",
+  "version": "0.1.0",
+  "description": "Utility helpers for loading Hanzi Writer character data from CDN, local bundles, or hybrid sources.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "repository": "iunknow588/hanzi",
+  "keywords": [
+    "hanzi",
+    "stroke-order",
+    "loader",
+    "data"
+  ]
+}
