@@ -7,6 +7,13 @@
 body {
   margin: 0;
   padding: 2rem;
+  font-weight: 500;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 700;
 }
 
 #app {
@@ -237,10 +244,29 @@ select {
   color: #475569;
 }
 
+[data-mode-panel],
+[data-mode-only] {
+  display: none;
+}
+
+body[data-session-mode='practice'] [data-mode-panel='practice'],
+body[data-session-mode='test'] [data-mode-panel='test'] {
+  display: block;
+}
+
+body[data-session-mode='practice'] [data-mode-only='practice'] {
+  display: flex;
+}
+
+body[data-session-mode='test'] [data-mode-only='test'] {
+  display: block;
+}
+
 .writer-actions {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .writer-actions button {
@@ -259,6 +285,42 @@ select {
   min-height: 1.25rem;
   color: #2563eb;
   font-weight: 500;
+}
+
+.test-mode-hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #1d4ed8;
+}
+
+.writer-score-log {
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.writer-score-log h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.writer-score-log__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.writer-score-log__list li {
+  font-size: 0.9rem;
+  color: #0f172a;
+  border-left: 3px solid #2563eb;
+  padding-left: 0.5rem;
 }
 
 .copybook-panel {

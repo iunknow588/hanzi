@@ -30,6 +30,12 @@ const sessionStatusElm = document.getElementById('session-status');
 const modeButtons = Array.from(
   document.querySelectorAll<HTMLButtonElement>('[data-mode]'),
 );
+const modePanelSections = Array.from(
+  document.querySelectorAll<HTMLElement>('[data-mode-panel]'),
+);
+const writerScoreLogList = document.getElementById(
+  'writer-score-log-list',
+) as HTMLUListElement | null;
 
 if (!writerContainer) {
   throw new Error('#writer element missing');
@@ -71,6 +77,8 @@ const parseSequenceValue = (value: string) =>
 
 let sequenceQueue: string[] = [];
 let sequenceIndex = -1;
+
+const bodyElm = document.body;
 
 const renderSequencePreview = () => {
   if (!sequencePreviewElm) return;
@@ -114,6 +122,43 @@ const updateSequenceStatus = () => {
 };
 
 updateSequenceStatus();
+
+const applyModePanels = () => {
+  if (!bodyElm) return;
+  bodyElm.setAttribute('data-session-mode', sessionMode);
+  modePanelSections.forEach((section) => {
+    const targetMode = section.dataset.modePanel as SessionMode | undefined;
+    if (!targetMode) return;
+    section.hidden = targetMode !== sessionMode;
+  });
+};
+
+const writerScoreLogInitial = '<li>等待书写…</li>';
+const resetWriterScoreLog = () => {
+  if (writerScoreLogList) {
+    writerScoreLogList.innerHTML = writerScoreLogInitial;
+  }
+};
+
+const pushWriterScoreLog = (payload: ScoreUpdatePayload) => {
+  if (!writerScoreLogList) return;
+  if (writerScoreLogList.innerHTML.includes('等待书写')) {
+    writerScoreLogList.innerHTML = '';
+  }
+  const li = document.createElement('li');
+  const title = document.createElement('strong');
+  title.textContent = `第 ${payload.strokeIndex + 1} 笔`;
+  const detail = document.createElement('span');
+  detail.textContent = `得分 ${formatScore(payload.score.overall)} · 当前总分 ${formatScore(
+    payload.overallScore,
+  )}`;
+  li.append(title, document.createTextNode(' — '), detail);
+  writerScoreLogList.prepend(li);
+  const maxEntries = 8;
+  while (writerScoreLogList.children.length > maxEntries) {
+    writerScoreLogList.removeChild(writerScoreLogList.lastElementChild!);
+  }
+};
 
 type ScoreComponents = {
   endpoints: number;
@@ -181,6 +226,7 @@ const resetScorePanel = () => {
   if (scoreListElm) {
     scoreListElm.innerHTML = '<li class="score-pending">等待评分…</li>';
   }
+  resetWriterScoreLog();
 };
 
 const formatScore = (value: number) => `${Math.round(value * 100)}`;
@@ -233,6 +279,7 @@ const handleScoreUpdate = (payload: ScoreUpdatePayload) => {
       payload.overallScore,
     )}。`,
   );
+  pushWriterScoreLog(payload);
 };
 
 const createWriter = (char: string) => {
@@ -333,6 +380,7 @@ const updateModeButtons = () => {
     const target = btn.dataset.mode as SessionMode | undefined;
     btn.classList.toggle('is-active', target === sessionMode);
   });
+  applyModePanels();
 };
 
 const syncHintToggleState = () => {
