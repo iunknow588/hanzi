@@ -85,17 +85,26 @@ log_info "步骤 2: link 项目"
 vercel link --yes --scope "$HANZI_VERCEL_SCOPE" --project "$HANZI_VERCEL_PROJECT"
 verify_link_result
 
-if [ ! -d "$HANZI_VERCEL_BUILD_DIR" ]; then
+BUILD_PATH="$SOURCE_PATH/$HANZI_VERCEL_BUILD_DIR"
+
+if [ ! -d "$BUILD_PATH" ]; then
   log_error "部署目录缺少构建输出: $HANZI_VERCEL_BUILD_DIR"
   exit 1
 fi
 
+TMP_VERCEL_DIR="$BUILD_PATH/.vercel"
+rm -rf "$TMP_VERCEL_DIR"
+mkdir -p "$(dirname "$TMP_VERCEL_DIR")"
+cp -R "$SOURCE_PATH/.vercel" "$TMP_VERCEL_DIR"
+
 log_info "步骤 3: 部署 ($HANZI_VERCEL_BUILD_DIR)"
 if [ "$ENVIRONMENT" = "production" ]; then
-  vercel deploy "$HANZI_VERCEL_BUILD_DIR" --prod --yes --scope "$HANZI_VERCEL_SCOPE" --logs --archive="$HANZI_VERCEL_ARCHIVE"
+  vercel deploy "$BUILD_PATH" --prod --yes --scope "$HANZI_VERCEL_SCOPE" --project "$HANZI_VERCEL_PROJECT" --logs --archive="$HANZI_VERCEL_ARCHIVE"
 else
-  vercel deploy "$HANZI_VERCEL_BUILD_DIR" --yes --scope "$HANZI_VERCEL_SCOPE" --logs --archive="$HANZI_VERCEL_ARCHIVE"
+  vercel deploy "$BUILD_PATH" --yes --scope "$HANZI_VERCEL_SCOPE" --project "$HANZI_VERCEL_PROJECT" --logs --archive="$HANZI_VERCEL_ARCHIVE"
 fi
+
+rm -rf "$TMP_VERCEL_DIR"
 
 log_info "步骤 4: 展示最近部署"
 vercel list --yes --scope "$HANZI_VERCEL_SCOPE" | head -n 20 || true
