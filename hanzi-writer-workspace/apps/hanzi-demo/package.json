@@ -9,9 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "hanzi-writer": "3.0.0",
-    "hanzi-writer-data": "2.0.1",
-    "hanzi-writer-data-client": "0.1.0"
+    "hanzi-writer": "workspace:*",
+    "hanzi-writer-data": "workspace:*",
+    "hanzi-writer-data-client": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.4.0",
