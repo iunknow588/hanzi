@@ -1,0 +1,4 @@
+node_modules/
+**/node_modules/
+hanzi-writer-workspace/yarn.lock
+hanzi-writer-workspace/packages/hanzi-writer-renderers/dist/
