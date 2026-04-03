@@ -15,7 +15,7 @@ yarn demo:build
 ```
 
 ## 特性
-- 默认预置三个本地字符数据（我/你/汉），由 `hanzi-writer-data` 提供，并以 Chip 形式快速切换
+- 默认字帖内容为 `天地玄黄`，首页会自动加载这组字并从首字开始练习
 - `hanzi-writer-data-client` 以 Hybrid 模式工作：若输入其他字符则回退到 CDN（需要网络）
 - 可作为 Vercel 部署的基础，也可自定义 UI/交互
 - 内置实时评分面板：开启 `enableLocalScoring` 后，右侧 Hanzi Writer 组件会在写完每一笔后回调分数，左侧面板展示综合分与“起止/走向/形态”细分指标。参考实现位于 `src/main.ts`。

@@ -17,6 +17,17 @@ type ParentFrameMessage = {
 
 initPwa({ page: 'mode' });
 
+const defaultSequenceSample = '天地玄黄';
+const legacyDefaultSequenceSample = '我你汉';
+const WRITER_VIEWBOX_SIZE = 360;
+const WRITER_VIEWBOX_PADDING = 10;
+const WRITER_CHARACTER_BOUNDS = {
+  minX: 0,
+  minY: -124,
+  maxX: 1024,
+  maxY: 900,
+};
+
 type PersistedPageState = {
   sequenceInputValue?: string;
   sequenceIndex?: number;
@@ -168,10 +179,6 @@ const mobileControlsToggleBtn = document.getElementById(
   'mobile-controls-toggle',
 ) as HTMLButtonElement | null;
 
-if (sequenceInput && typeof persistedPageState.sequenceInputValue === 'string') {
-  sequenceInput.value = persistedPageState.sequenceInputValue;
-}
-
 if (hintToggleInput && typeof persistedPageState.hintPreference === 'boolean') {
   hintToggleInput.checked = persistedPageState.hintPreference;
 }
@@ -214,22 +221,36 @@ const setSessionStatus = (msg: string) => {
   notifyParentFrame();
 };
 
-const defaultSequenceSample = '天地玄黄宇宙洪荒';
-
 const parseSequenceValue = (value: string) =>
   Array.from(value.replace(/\s+/g, '')).filter((char) => Boolean(char.trim()));
+
+const normalizeSequenceValue = (value?: string) => parseSequenceValue(value || '').join('');
+const shouldUseDefaultSequence = (value?: string) => {
+  const normalized = normalizeSequenceValue(value);
+  return !normalized || normalized === legacyDefaultSequenceSample;
+};
+const shouldResetSequenceIndex = shouldUseDefaultSequence(persistedPageState.sequenceInputValue);
+
+if (sequenceInput) {
+  sequenceInput.value = shouldResetSequenceIndex
+    ? defaultSequenceSample
+    : persistedPageState.sequenceInputValue || '';
+}
 
 const restoredSequenceQueue = parseSequenceValue(sequenceInput?.value || '');
 const restoredSequenceIndexRaw = persistedPageState.sequenceIndex;
 
 let sequenceQueue: string[] = restoredSequenceQueue;
 let sequenceIndex =
+  !shouldResetSequenceIndex &&
   restoredSequenceQueue.length &&
   typeof restoredSequenceIndexRaw === 'number' &&
   restoredSequenceIndexRaw >= 0 &&
   restoredSequenceIndexRaw < restoredSequenceQueue.length
     ? restoredSequenceIndexRaw
-    : -1;
+    : restoredSequenceQueue.length
+      ? 0
+      : -1;
 
 const bodyElm = document.body;
 type StrokeHistoryEntry = {
@@ -244,12 +265,15 @@ const STROKE_HISTORY_LIMIT = 50;
 const strokeHistory: StrokeHistoryEntry[] = [];
 let currentCharStrokePaths: string[] = [];
 let currentCharUserPaths: string[] = [];
+const restoredActiveCharacter = persistedPageState.activeCharacter?.trim() || '';
 let activeCharacter =
   initialSessionMode === 'upload'
     ? ''
     : sequenceIndex >= 0 && sequenceIndex < sequenceQueue.length
       ? sequenceQueue[sequenceIndex]
-      : persistedPageState.activeCharacter?.trim() || '我';
+      : restoredSequenceQueue.includes(restoredActiveCharacter)
+        ? restoredActiveCharacter
+        : restoredSequenceQueue[0] || defaultSequenceSample[0];
 let latestJobRecords: JobRecord[] = [];
 let latestCharacterScore: number | null = null;
 const recentCharacterScores: number[] = [];
@@ -459,6 +483,28 @@ const applyModePanels = () => {
   });
 };
 
+const getHistoryStandardTransform = () => {
+  const charWidth = WRITER_CHARACTER_BOUNDS.maxX - WRITER_CHARACTER_BOUNDS.minX;
+  const charHeight = WRITER_CHARACTER_BOUNDS.maxY - WRITER_CHARACTER_BOUNDS.minY;
+  const usableWidth = WRITER_VIEWBOX_SIZE - 2 * WRITER_VIEWBOX_PADDING;
+  const usableHeight = WRITER_VIEWBOX_SIZE - 2 * WRITER_VIEWBOX_PADDING;
+  const scale = Math.min(usableWidth / charWidth, usableHeight / charHeight);
+  const xOffset =
+    -WRITER_CHARACTER_BOUNDS.minX * scale +
+    WRITER_VIEWBOX_PADDING +
+    (usableWidth - scale * charWidth) / 2;
+  const yOffset =
+    -WRITER_CHARACTER_BOUNDS.minY * scale +
+    WRITER_VIEWBOX_PADDING +
+    (usableHeight - scale * charHeight) / 2;
+  return {
+    scale,
+    xOffset,
+    yOffset,
+    translateY: WRITER_VIEWBOX_SIZE - yOffset,
+  };
+};
+
 const renderStrokeHistory = () => {
   if (!writerScoreLogList) return;
   if (!strokeHistory.length) {
@@ -475,28 +521,59 @@ const renderStrokeHistory = () => {
       <span>${new Date(entry.timestamp).toLocaleTimeString()}</span>`;
     const svgNS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(svgNS, 'svg');
-    svg.setAttribute('viewBox', '0 0 1024 1024');
+    svg.setAttribute('viewBox', `0 0 ${WRITER_VIEWBOX_SIZE} ${WRITER_VIEWBOX_SIZE}`);
     svg.setAttribute('class', 'stroke-history__canvas');
+    const background = document.createElementNS(svgNS, 'rect');
+    background.setAttribute('x', '0');
+    background.setAttribute('y', '0');
+    background.setAttribute('width', `${WRITER_VIEWBOX_SIZE}`);
+    background.setAttribute('height', `${WRITER_VIEWBOX_SIZE}`);
+    background.setAttribute('rx', '18');
+    background.setAttribute('fill', '#f8fafc');
+    svg.appendChild(background);
     if (entry.standardPaths?.length) {
+      const standardGroup = document.createElementNS(svgNS, 'g');
+      const { scale, xOffset, translateY } = getHistoryStandardTransform();
+      standardGroup.setAttribute(
+        'transform',
+        `translate(${xOffset} ${translateY}) scale(${scale} ${-scale})`,
+      );
       entry.standardPaths.forEach((path) => {
         const standardPath = document.createElementNS(svgNS, 'path');
         standardPath.setAttribute('d', path);
-        standardPath.setAttribute('fill', '#e2e8f0');
-        standardPath.setAttribute('stroke', '#cbd5f5');
-        standardPath.setAttribute('stroke-width', '20');
-        svg.appendChild(standardPath);
+        standardPath.setAttribute('fill', '#cbd5e1');
+        standardPath.setAttribute('fill-opacity', '0.58');
+        standardPath.setAttribute('stroke', '#94a3b8');
+        standardPath.setAttribute('stroke-opacity', '0.35');
+        standardPath.setAttribute('stroke-width', '10');
+        standardGroup.appendChild(standardPath);
       });
+      svg.appendChild(standardGroup);
     }
-    entry.userPaths.forEach((path) => {
-      const userPath = document.createElementNS(svgNS, 'path');
-      userPath.setAttribute('d', path);
-      userPath.setAttribute('fill', 'none');
-      userPath.setAttribute('stroke', '#ef4444');
-      userPath.setAttribute('stroke-width', '60');
-      userPath.setAttribute('stroke-linecap', 'round');
-      userPath.setAttribute('stroke-linejoin', 'round');
-      svg.appendChild(userPath);
-    });
+    if (entry.userPaths.length) {
+      const userGroup = document.createElementNS(svgNS, 'g');
+      entry.userPaths.forEach((path) => {
+        const userPathShadow = document.createElementNS(svgNS, 'path');
+        userPathShadow.setAttribute('d', path);
+        userPathShadow.setAttribute('fill', 'none');
+        userPathShadow.setAttribute('stroke', '#ffffff');
+        userPathShadow.setAttribute('stroke-width', '20');
+        userPathShadow.setAttribute('stroke-linecap', 'round');
+        userPathShadow.setAttribute('stroke-linejoin', 'round');
+        userPathShadow.setAttribute('opacity', '0.92');
+        userGroup.appendChild(userPathShadow);
+
+        const userPath = document.createElementNS(svgNS, 'path');
+        userPath.setAttribute('d', path);
+        userPath.setAttribute('fill', 'none');
+        userPath.setAttribute('stroke', '#dc2626');
+        userPath.setAttribute('stroke-width', '12');
+        userPath.setAttribute('stroke-linecap', 'round');
+        userPath.setAttribute('stroke-linejoin', 'round');
+        userGroup.appendChild(userPath);
+      });
+      svg.appendChild(userGroup);
+    }
     item.append(meta, svg);
     writerScoreLogList.appendChild(item);
   });
@@ -815,9 +892,9 @@ const createWriter = (char: string) => {
   }
   writerContainer.innerHTML = '';
   const writer = HanziWriter.create(writerContainer, char, {
-    width: 360,
-    height: 360,
-    padding: 10,
+    width: WRITER_VIEWBOX_SIZE,
+    height: WRITER_VIEWBOX_SIZE,
+    padding: WRITER_VIEWBOX_PADDING,
     charDataLoader: loader,
     enableLocalScoring: true,
     onScoreUpdate: handleScoreUpdate,
@@ -1030,10 +1107,14 @@ const setSessionMode = (mode: SessionMode) => {
 
 if (writerContainer) {
   resetScorePanel();
-  currentWriter = createWriter(activeCharacter || '我');
+  currentWriter = createWriter(activeCharacter || defaultSequenceSample[0]);
   syncHintToggleState();
   updateModeButtons();
-  loadCharacter(activeCharacter || '我');
+  if (sequenceQueue.length) {
+    loadSequenceCharAt(sequenceIndex >= 0 ? sequenceIndex : 0);
+  } else {
+    loadCharacter(activeCharacter || defaultSequenceSample[0]);
+  }
 } else {
   updateModeButtons();
   syncHintToggleState();
@@ -1042,7 +1123,7 @@ if (writerContainer) {
 syncMobileControlsToggle();
 
 if (chipList) {
-  const defaultChars = Object.keys(localDataMap);
+  const defaultChars = parseSequenceValue(defaultSequenceSample);
   defaultChars.forEach((char) => {
     const chip = document.createElement('span');
     chip.className = 'chip';
@@ -1062,9 +1143,6 @@ if (chipList) {
     });
     chipList.appendChild(chip);
   });
-  if (sequenceInput && !sequenceInput.value.trim()) {
-    sequenceInput.value = defaultChars.join('');
-  }
 }
 
 sequenceApplyBtn?.addEventListener('click', () => {
