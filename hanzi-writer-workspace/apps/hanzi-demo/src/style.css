@@ -198,6 +198,64 @@ select {
   gap: 1rem;
 }
 
+.session-status--inline {
+  width: 100%;
+  margin: 0.25rem 0 0.5rem;
+  padding: 0.75rem 1rem;
+  background: #f1f5f9;
+  border-radius: 8px;
+  color: #0f172a;
+}
+
+.mode-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.mode-page__header h1 {
+  margin: 0 0 0.5rem;
+  font-size: 2rem;
+}
+
+.mode-page__header p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.upload-panel--standalone {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.job-list--standalone,
+.job-result--standalone {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.mode-page--upload .job-result__cells {
+  overflow: auto;
+}
+
+@media (max-width: 720px) {
+  body {
+    padding: 1.5rem 1rem;
+  }
+
+  #writer {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+  }
+}
+
 .writer-feedback {
   margin: 0;
   color: #475569;

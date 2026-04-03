@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>汉字书写评分 · 稿纸上传</title>
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  </head>
+  <body data-default-mode="upload" data-page-role="upload">
+    <div class="mode-page mode-page--upload">
+      <header class="mode-page__header">
+        <h1>整页稿纸上传评分</h1>
+        <p>
+          使用 Hanzi ⇄ Coze Bridge 上传整张书法稿纸，自动完成切分、评分与结果回传。
+          选择工件类型与执行模式后即可排队，任务完成后可直接在线查看评分详情。
+        </p>
+      </header>
+
+      <section class="upload-panel upload-panel--standalone">
+        <form id="upload-form">
+          <label for="page-file">稿纸文件（jpg/png/pdf）</label>
+          <input id="page-file" type="file" accept=".png,.jpg,.jpeg,.pdf" />
+
+          <div class="upload-panel__options">
+            <div>
+              <label for="artifact-level">切分工件</label>
+              <select id="artifact-level">
+                <option value="v1">v1</option>
+                <option value="v2">v2</option>
+              </select>
+            </div>
+            <div>
+              <label for="score-artifact-level">评分工件</label>
+              <select id="score-artifact-level">
+                <option value="v1">v1</option>
+                <option value="v2">v2</option>
+              </select>
+            </div>
+            <div>
+              <label for="execution-mode">执行模式</label>
+              <select id="execution-mode">
+                <option value="pipeline">pipeline</option>
+                <option value="skills">skills</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" id="upload-submit">上传并排队</button>
+        </form>
+      </section>
+
+      <section class="job-list job-list--standalone">
+        <div class="job-list__header">
+          <h2>任务列表</h2>
+          <button type="button" id="refresh-jobs" class="btn-secondary btn-small">刷新</button>
+        </div>
+        <p id="job-status-message" class="job-status-message">尚未进入上传模式。</p>
+        <ul id="job-list-entries" class="job-list__items"></ul>
+      </section>
+
+      <article id="job-result-panel" class="job-result job-result--standalone">
+        <div class="job-result__header">
+          <div>
+            <h3 id="job-result-title">尚未选择任务</h3>
+            <p id="job-result-summary" class="job-result__summary">
+              选择已完成的任务即可查看评分详情与低分提示。
+            </p>
+          </div>
+          <button type="button" id="job-result-close" class="btn-secondary btn-small">清空</button>
+        </div>
+        <p id="job-result-metrics" class="job-result__metrics"></p>
+        <div id="job-result-low-score" class="job-result__low-score"></div>
+        <div class="job-result__cells">
+          <table>
+            <thead>
+              <tr>
+                <th>格子</th>
+                <th>字符</th>
+                <th>总分</th>
+                <th>起止</th>
+                <th>走向</th>
+                <th>形态</th>
+              </tr>
+            </thead>
+            <tbody id="job-result-cells">
+              <tr>
+                <td colspan="6" class="job-result__placeholder">暂无数据</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

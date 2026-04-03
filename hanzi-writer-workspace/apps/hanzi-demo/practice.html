@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>汉字书写评分 · 练习模式</title>
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  </head>
+  <body data-default-mode="practice" data-page-role="writer">
+    <div id="app">
+      <section class="controls">
+        <h1>汉字笔顺练习 &amp; 评分</h1>
+        <p>在此页面配置练习字帖与本地缓存字库，右侧画布专注于书法练习与实时笔画评分。</p>
+
+        <div class="copybook-panel" data-mode-only="writer">
+          <div class="copybook-panel__header">
+            <label for="sequence-input">字帖内容（可批量输入多个汉字）</label>
+            <button type="button" id="sequence-sample" class="btn-secondary btn-small">填充示例</button>
+          </div>
+          <textarea
+            id="sequence-input"
+            rows="2"
+            placeholder="例如：天地玄黄宇宙洪荒"
+          ></textarea>
+          <div class="copybook-panel__actions">
+            <button type="button" id="sequence-apply">载入字帖</button>
+            <button type="button" id="sequence-next" class="btn-secondary">下一个</button>
+            <button type="button" id="sequence-reset" class="btn-secondary">清空进度</button>
+          </div>
+          <p class="copybook-panel__status">
+            当前：<span id="sequence-current">--</span>
+            · 剩余：<span id="sequence-remaining">0</span>
+          </p>
+          <div class="copybook-preview">
+            <strong>字帖预览：</strong>
+            <div id="sequence-preview" class="chip-list chip-list--wrap copybook-preview__empty">
+              暂无字帖，先输入文字。
+            </div>
+          </div>
+        </div>
+
+        <div class="default-library" data-mode-only="writer">
+          <strong>默认字库示例：</strong>
+          <div id="local-chip-list" class="chip-list"></div>
+        </div>
+
+        <div class="score-panel" data-mode-only="writer">
+          <div class="score-panel__header">
+            <span>实时评分</span>
+            <strong><span id="score-total-value">--</span></strong>
+          </div>
+          <ul id="score-strokes" class="score-list">
+            <li class="score-pending">等待评分…</li>
+          </ul>
+        </div>
+
+      </section>
+
+      <section class="writer-panel">
+        <div class="writer-panel__header">
+          <h2>书写练习区</h2>
+          <p id="writer-feedback" class="writer-feedback">点击画布即可开始书写。</p>
+        </div>
+        <p id="session-status" class="session-status session-status--inline">
+          当前为练习模式，可随时落笔体验实时评分。
+        </p>
+        <div class="writer-canvas-area" data-mode-only="writer">
+          <div id="writer"></div>
+          <div class="writer-actions">
+            <button type="button" id="restart-quiz">重新练习</button>
+            <label class="hint-toggle" data-mode-only="practice">
+              <input type="checkbox" id="hint-toggle" checked />
+              允许一次错误后显示提示
+            </label>
+          </div>
+          <div class="stroke-history" data-mode-only="writer">
+            <div class="stroke-history__header">
+              <h3>笔画对比记录</h3>
+              <button type="button" id="stroke-history-clear" class="btn-secondary btn-small">清除记录</button>
+            </div>
+            <p class="stroke-history__hint">浅灰：标准整字 · 红色：你的整字描写，展示最近 50 次完整书写。</p>
+            <div id="stroke-history-list" class="stroke-history__list">
+              <p class="stroke-history__placeholder">等待完成整字…</p>
+            </div>
+          </div>
+        </div>
+        <p id="loader-status" class="status-text">正在初始化…</p>
+      </section>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

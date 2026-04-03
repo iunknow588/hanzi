@@ -3,187 +3,34 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hanzi Writer Demo</title>
+    <title>汉字书写评分 · 模式选择</title>
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   </head>
   <body>
-    <div id="app">
-      <section class="controls">
-        <h1>汉字笔顺练习 &amp; 评分</h1>
-        <p>左侧设置练习内容，右侧实时书写并查看评分，或切换到上传模式提交整页稿纸。</p>
-
-        <div class="copybook-panel" data-mode-only="writer">
-          <div class="copybook-panel__header">
-            <label for="sequence-input">字帖内容（可批量输入多个汉字）</label>
-            <button type="button" id="sequence-sample" class="btn-secondary btn-small">填充示例</button>
-          </div>
-          <textarea
-            id="sequence-input"
-            rows="2"
-            placeholder="例如：天地玄黄宇宙洪荒"
-          ></textarea>
-          <div class="copybook-panel__actions">
-            <button type="button" id="sequence-apply">载入字帖</button>
-            <button type="button" id="sequence-next" class="btn-secondary">下一个</button>
-            <button type="button" id="sequence-reset" class="btn-secondary">清空进度</button>
-          </div>
-          <p class="copybook-panel__status">
-            当前：<span id="sequence-current">--</span>
-            · 剩余：<span id="sequence-remaining">0</span>
-          </p>
-          <div class="copybook-preview">
-            <strong>字帖预览：</strong>
-            <div id="sequence-preview" class="chip-list chip-list--wrap copybook-preview__empty">
-              暂无字帖，先输入文字。
-            </div>
-          </div>
+    <div class="mode-shell">
+      <aside class="mode-shell__nav">
+        <div>
+          <h1>模式选择</h1>
+          <p>选择需要的功能模式，右侧将加载对应的独立页面，互不干扰。</p>
         </div>
-
-        <div class="default-library" data-mode-only="writer">
-          <strong>默认字库示例：</strong>
-          <div id="local-chip-list" class="chip-list"></div>
-        </div>
-
-        <div class="score-panel" data-mode-only="writer">
-          <div class="score-panel__header">
-            <span>实时评分</span>
-            <strong><span id="score-total-value">--</span></strong>
-          </div>
-          <ul id="score-strokes" class="score-list">
-            <li class="score-pending">等待评分…</li>
-          </ul>
-        </div>
-
-      </section>
-
-      <section class="writer-panel">
-        <div class="writer-panel__header">
-          <h2>书写练习区</h2>
-          <p id="writer-feedback" class="writer-feedback">点击画布即可开始书写。</p>
-        </div>
-        <div class="mode-panel">
-          <div class="mode-panel__row">
-            <span>练习 / 测试模式</span>
-            <div class="mode-panel__buttons">
-              <button type="button" class="mode-btn is-active" data-mode="practice">练习</button>
-              <button type="button" class="mode-btn" data-mode="test">测试</button>
-              <button type="button" class="mode-btn" data-mode="upload">上传稿纸</button>
-            </div>
-          </div>
-          <div class="mode-panel__content" data-mode-panel="practice">
-            <p>练习模式支持提示，随写随评，适合打基础。</p>
-          </div>
-          <div class="mode-panel__content" data-mode-panel="test">
-            <p>测试模式关联字帖顺序，完成一个汉字后自动切换下一格。</p>
-          </div>
-          <div class="mode-panel__content" data-mode-panel="upload">
-            <p>上传稿纸后进入 Hanzi Bridge 队列，完成切分 + 评分。</p>
-          </div>
-          <p id="session-status" class="session-status">当前为练习模式，可随时落笔体验实时评分。</p>
-        </div>
-        <div class="writer-canvas-area" data-mode-only="writer">
-          <div id="writer"></div>
-          <div class="writer-actions">
-            <button type="button" id="restart-quiz">重新练习</button>
-            <label class="hint-toggle" data-mode-only="practice">
-              <input type="checkbox" id="hint-toggle" checked />
-              允许一次错误后显示提示
-            </label>
-            <p class="test-mode-hint" data-mode-only="test">测试模式下自动禁用提示，完成整字后进入下一格。</p>
-          </div>
-          <div class="stroke-history" data-mode-only="writer">
-            <div class="stroke-history__header">
-              <h3>笔画对比记录</h3>
-              <button type="button" id="stroke-history-clear" class="btn-secondary btn-small">清除记录</button>
-            </div>
-            <p class="stroke-history__hint">浅灰：标准笔画 · 红色：你的笔画，最多保留最近 50 条。</p>
-            <div id="stroke-history-list" class="stroke-history__list">
-              <p class="stroke-history__placeholder">等待书写…</p>
-            </div>
-          </div>
-        </div>
-        <section class="upload-panel" data-mode-only="upload">
-          <h2>整页上传评分</h2>
-          <p class="upload-panel__hint">
-            选择整页稿纸，提交到 Coze Skill Pipeline，自动完成切分＋评分。
-          </p>
-          <form id="upload-form">
-            <label for="page-file">稿纸文件（jpg/png/pdf）</label>
-            <input id="page-file" type="file" accept=".png,.jpg,.jpeg,.pdf" />
-
-            <div class="upload-panel__options">
-              <div>
-                <label for="artifact-level">切分工件</label>
-                <select id="artifact-level">
-                  <option value="v1">v1</option>
-                  <option value="v2">v2</option>
-                </select>
-              </div>
-              <div>
-                <label for="score-artifact-level">评分工件</label>
-                <select id="score-artifact-level">
-                  <option value="v1">v1</option>
-                  <option value="v2">v2</option>
-                </select>
-              </div>
-              <div>
-                <label for="execution-mode">执行模式</label>
-                <select id="execution-mode">
-                  <option value="pipeline">pipeline</option>
-                  <option value="skills">skills</option>
-                </select>
-              </div>
-            </div>
-
-            <button type="submit" id="upload-submit">上传并排队</button>
-          </form>
-
-          <div class="job-list">
-            <div class="job-list__header">
-              <h3>任务列表</h3>
-              <button type="button" id="refresh-jobs" class="btn-secondary btn-small">刷新</button>
-            </div>
-            <p id="job-status-message" class="job-status-message">尚未进入上传模式。</p>
-            <ul id="job-list-entries" class="job-list__items"></ul>
-          </div>
-
-          <article id="job-result-panel" class="job-result">
-            <div class="job-result__header">
-              <div>
-                <h3 id="job-result-title">尚未选择任务</h3>
-                <p id="job-result-summary" class="job-result__summary">
-                  切换至上传模式并选择已完成的任务可查看详情。
-                </p>
-              </div>
-              <button type="button" id="job-result-close" class="btn-secondary btn-small">清空</button>
-            </div>
-            <p id="job-result-metrics" class="job-result__metrics"></p>
-            <div id="job-result-low-score" class="job-result__low-score"></div>
-            <div class="job-result__cells">
-              <table>
-                <thead>
-                  <tr>
-                    <th>格子</th>
-                    <th>字符</th>
-                    <th>总分</th>
-                    <th>起止</th>
-                    <th>走向</th>
-                    <th>形态</th>
-                  </tr>
-                </thead>
-                <tbody id="job-result-cells">
-                  <tr>
-                    <td colspan="6" class="job-result__placeholder">暂无数据</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </article>
-        </section>
-        <p id="loader-status" class="status-text">正在初始化…</p>
-      </section>
+        <nav class="mode-shell__nav-list">
+          <button type="button" class="mode-switch is-active" data-target-page="practice">书法练习</button>
+          <button type="button" class="mode-switch" data-target-page="test">测试评测</button>
+          <button type="button" class="mode-switch" data-target-page="upload">稿纸上传</button>
+        </nav>
+        <p class="mode-shell__hint">默认加载书法练习模式，可随时切换。</p>
+      </aside>
+      <main class="mode-shell__content">
+        <iframe
+          id="mode-frame"
+          title="Hanzi Writer Mode"
+          src="/practice.html"
+          loading="lazy"
+          allow="clipboard-write"
+        ></iframe>
+      </main>
     </div>
 
-    <script type="module" src="/src/main.ts"></script>
+    <script type="module" src="/src/shell.ts"></script>
   </body>
 </html>

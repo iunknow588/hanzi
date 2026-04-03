@@ -4,6 +4,13 @@ import { createCharDataLoader } from 'hanzi-writer-data-client';
 import localDataMap from './local-data.json';
 import './style.css';
 
+type SessionMode = 'practice' | 'test' | 'upload';
+type PageRole = 'writer' | 'upload';
+
+const pageRole = (document.body?.dataset.pageRole as PageRole | undefined) ?? 'writer';
+const initialSessionMode =
+  (document.body?.dataset.defaultMode as SessionMode | undefined) ?? 'practice';
+
 const loader = createCharDataLoader({
   source: 'hybrid',
   localData: (char) => localDataMap[char as keyof typeof localDataMap],
@@ -37,20 +44,22 @@ const writerScoreLogList = document.getElementById(
 ) as HTMLElement | null;
 const strokeHistoryClearBtn = document.getElementById('stroke-history-clear');
 
-if (!writerContainer) {
+if (!writerContainer && pageRole === 'writer') {
   throw new Error('#writer element missing');
 }
 
-writerContainer.addEventListener('pointerdown', () => {
-  setWriterFeedback('检测到笔画输入，继续保持即可。');
-});
+if (writerContainer) {
+  writerContainer.addEventListener('pointerdown', () => {
+    setWriterFeedback('检测到笔画输入，继续保持即可。');
+  });
 
-const handlePointerComplete = () => {
-  setWriterFeedback('已记录该笔画，等待评分...');
-};
+  const handlePointerComplete = () => {
+    setWriterFeedback('已记录该笔画，等待评分...');
+  };
 
-writerContainer.addEventListener('pointerup', handlePointerComplete);
-writerContainer.addEventListener('pointercancel', handlePointerComplete);
+  writerContainer.addEventListener('pointerup', handlePointerComplete);
+  writerContainer.addEventListener('pointercancel', handlePointerComplete);
+}
 
 const setStatus = (msg: string) => {
   if (statusElm) {
@@ -82,15 +91,16 @@ const bodyElm = document.body;
 type StrokeHistoryEntry = {
   id: string;
   char: string;
-  strokeIndex: number;
-  defaultPath?: string;
-  userPath: string;
+  standardPaths: string[];
+  userPaths: string[];
   timestamp: number;
 };
 
 const STROKE_HISTORY_LIMIT = 50;
 const strokeHistory: StrokeHistoryEntry[] = [];
 let currentCharStrokePaths: string[] = [];
+let currentCharUserPaths: string[] = [];
+let activeCharacter = initialSessionMode === 'upload' ? '' : '我';
 
 const renderSequencePreview = () => {
   if (!sequencePreviewElm) return;
@@ -148,7 +158,7 @@ const applyModePanels = () => {
 const renderStrokeHistory = () => {
   if (!writerScoreLogList) return;
   if (!strokeHistory.length) {
-    writerScoreLogList.innerHTML = '<p class="stroke-history__placeholder">等待书写…</p>';
+    writerScoreLogList.innerHTML = '<p class="stroke-history__placeholder">等待完成整字…</p>';
     return;
   }
   writerScoreLogList.innerHTML = '';
@@ -157,28 +167,32 @@ const renderStrokeHistory = () => {
     item.className = 'stroke-history__item';
     const meta = document.createElement('div');
     meta.className = 'stroke-history__meta';
-    meta.innerHTML = `<span>${entry.char} · 第 ${entry.strokeIndex + 1} 笔</span>
+    meta.innerHTML = `<span>${entry.char || '未识别'} · 整字覆盖</span>
       <span>${new Date(entry.timestamp).toLocaleTimeString()}</span>`;
     const svgNS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(svgNS, 'svg');
     svg.setAttribute('viewBox', '0 0 1024 1024');
     svg.setAttribute('class', 'stroke-history__canvas');
-    if (entry.defaultPath) {
-      const standardPath = document.createElementNS(svgNS, 'path');
-      standardPath.setAttribute('d', entry.defaultPath);
-      standardPath.setAttribute('fill', '#e2e8f0');
-      standardPath.setAttribute('stroke', '#cbd5f5');
-      standardPath.setAttribute('stroke-width', '20');
-      svg.appendChild(standardPath);
+    if (entry.standardPaths?.length) {
+      entry.standardPaths.forEach((path) => {
+        const standardPath = document.createElementNS(svgNS, 'path');
+        standardPath.setAttribute('d', path);
+        standardPath.setAttribute('fill', '#e2e8f0');
+        standardPath.setAttribute('stroke', '#cbd5f5');
+        standardPath.setAttribute('stroke-width', '20');
+        svg.appendChild(standardPath);
+      });
     }
-    const userPath = document.createElementNS(svgNS, 'path');
-    userPath.setAttribute('d', entry.userPath);
-    userPath.setAttribute('fill', 'none');
-    userPath.setAttribute('stroke', '#ef4444');
-    userPath.setAttribute('stroke-width', '60');
-    userPath.setAttribute('stroke-linecap', 'round');
-    userPath.setAttribute('stroke-linejoin', 'round');
-    svg.appendChild(userPath);
+    entry.userPaths.forEach((path) => {
+      const userPath = document.createElementNS(svgNS, 'path');
+      userPath.setAttribute('d', path);
+      userPath.setAttribute('fill', 'none');
+      userPath.setAttribute('stroke', '#ef4444');
+      userPath.setAttribute('stroke-width', '60');
+      userPath.setAttribute('stroke-linecap', 'round');
+      userPath.setAttribute('stroke-linejoin', 'round');
+      svg.appendChild(userPath);
+    });
     item.append(meta, svg);
     writerScoreLogList.appendChild(item);
   });
@@ -186,18 +200,24 @@ const renderStrokeHistory = () => {
 
 const handleCorrectStroke = (strokeData: StrokeData) => {
   if (!strokeData?.drawnPath?.pathString) return;
+  currentCharUserPaths.push(strokeData.drawnPath.pathString);
+};
+
+const logCompletedCharacter = () => {
+  if (!writerScoreLogList) return;
+  if (!currentCharUserPaths.length) return;
   const entry: StrokeHistoryEntry = {
-    id: `${strokeData.character}-${strokeData.strokeNum}-${Date.now()}`,
-    char: strokeData.character,
-    strokeIndex: strokeData.strokeNum,
-    defaultPath: currentCharStrokePaths[strokeData.strokeNum],
-    userPath: strokeData.drawnPath.pathString,
+    id: `${activeCharacter || 'char'}-${Date.now()}`,
+    char: activeCharacter,
+    standardPaths: [...currentCharStrokePaths],
+    userPaths: [...currentCharUserPaths],
     timestamp: Date.now(),
   };
   strokeHistory.unshift(entry);
   if (strokeHistory.length > STROKE_HISTORY_LIMIT) {
     strokeHistory.pop();
   }
+  currentCharUserPaths = [];
   renderStrokeHistory();
 };
 
@@ -220,8 +240,6 @@ type ScoreEntry = {
   accepted: boolean;
   components: ScoreComponents;
 };
-
-type SessionMode = 'practice' | 'test' | 'upload';
 
 type ScoreUpdatePayload = {
   overallScore: number;
@@ -328,6 +346,9 @@ const handleScoreUpdate = (payload: ScoreUpdatePayload) => {
 };
 
 const createWriter = (char: string) => {
+  if (!writerContainer) {
+    throw new Error('Cannot create writer without container');
+  }
   writerContainer.innerHTML = '';
   const writer = HanziWriter.create(writerContainer, char, {
     width: 360,
@@ -341,16 +362,19 @@ const createWriter = (char: string) => {
 };
 
 const loadCharacter = (char: string) => {
-  if (!char) return;
+  if (!char || !currentWriter) return;
+  activeCharacter = char;
+  const writer = currentWriter;
   resetScorePanel();
+  currentCharUserPaths = [];
   const hasLocal = Boolean(localDataMap[char as keyof typeof localDataMap]);
   setStatus(hasLocal ? `使用本地缓存加载 ${char}` : `从 CDN 拉取 ${char} 数据...`);
-  currentWriter
+  writer
     .setCharacter(char)
     .then(() => {
       setStatus(`已加载 ${char}`);
       setWriterFeedback(`已切换到 ${char}，点击画布即可开始。`);
-      currentWriter
+      writer
         .getCharacterData()
         .then((data) => {
           currentCharStrokePaths = data.strokes.map((stroke) => stroke.path);
@@ -416,7 +440,7 @@ const advanceSequenceChar = () => {
   return true;
 };
 
-let currentWriter: HanziWriter;
+let currentWriter: HanziWriter | null = null;
 let sessionMode: SessionMode = 'practice';
 let practiceHintPreference = hintToggleInput?.checked ?? true;
 let hintsEnabled = practiceHintPreference;
@@ -464,6 +488,7 @@ const startQuiz = () => {
     highlightOnComplete: true,
     onCorrectStroke: handleCorrectStroke,
     onComplete: () => {
+      logCompletedCharacter();
       if (sessionMode === 'practice') {
         setSessionStatus('该字练习完成，可继续书写或切换其它汉字。');
         setTimeout(() => startQuiz(), 400);
@@ -520,11 +545,20 @@ const setSessionMode = (mode: SessionMode) => {
   startQuiz();
 };
 
-resetScorePanel();
-currentWriter = createWriter('我');
-syncHintToggleState();
-updateModeButtons();
-loadCharacter('我');
+if (writerContainer) {
+  resetScorePanel();
+  currentWriter = createWriter('我');
+  syncHintToggleState();
+  updateModeButtons();
+  loadCharacter('我');
+} else {
+  updateModeButtons();
+  syncHintToggleState();
+}
+
+if (initialSessionMode !== 'practice' || pageRole === 'upload') {
+  setSessionMode(initialSessionMode);
+}
 
 if (chipList) {
   const defaultChars = Object.keys(localDataMap);
@@ -622,7 +656,8 @@ const jobResultCells = document.getElementById('job-result-cells');
 const jobResultClose = document.getElementById('job-result-close');
 
 if (jobStatusMessage) {
-  jobStatusMessage.textContent = '切换到上传模式后自动加载任务。';
+  jobStatusMessage.textContent =
+    pageRole === 'upload' ? '正在初始化上传模式…' : '切换到上传模式后自动加载任务。';
 }
 
 const rawApiBase = (import.meta.env.VITE_HANZI_API_BASE as string | undefined) || '';
