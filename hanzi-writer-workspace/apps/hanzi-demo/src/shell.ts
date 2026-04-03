@@ -2,6 +2,13 @@ import './shell.css';
 import { initPwa } from './pwa';
 
 type ModeKey = 'practice' | 'test' | 'upload';
+type FrameStateMessage = {
+  type: 'hanzi-frame-state';
+  mode: ModeKey;
+  pageRole: 'writer' | 'upload';
+  title: string;
+  height: number;
+};
 
 const MODE_META: Record<
   ModeKey,
@@ -32,6 +39,8 @@ const STORAGE_KEY = 'hanzi-demo-mode';
 const switchButtons = Array.from(
   document.querySelectorAll<HTMLButtonElement>('[data-target-page]'),
 );
+const frameElm = document.getElementById('mode-frame') as HTMLIFrameElement | null;
+const loadingElm = document.getElementById('mode-loading');
 
 const getInitialMode = (): ModeKey => {
   const params = new URLSearchParams(window.location.search);
@@ -50,11 +59,29 @@ let activeMode: ModeKey = getInitialMode();
 
 initPwa({ page: 'home' });
 
+const setLoading = (isLoading: boolean) => {
+  if (!loadingElm) return;
+  loadingElm.hidden = !isLoading;
+};
+
 const logModeDebug = (mode: ModeKey, reason: 'init' | 'navigate') => {
   const meta = MODE_META[mode];
   console.debug(
     `[hanzi-demo] ${reason === 'init' ? '首页初始化' : '模式跳转'}：${meta.label} -> ${meta.page}。${meta.description}`,
   );
+};
+
+const getModeHref = (mode: ModeKey) => `${MODE_META[mode].page}?mode=${mode}`;
+
+const updateUrl = (replace = false) => {
+  const url = new URL(window.location.href);
+  url.searchParams.set('mode', activeMode);
+  if (replace) {
+    window.history.replaceState({}, '', url);
+  } else {
+    window.history.pushState({}, '', url);
+  }
+  window.localStorage.setItem(STORAGE_KEY, activeMode);
 };
 
 const syncView = () => {
@@ -69,23 +96,79 @@ const syncView = () => {
   });
 };
 
-const navigateToMode = (mode: ModeKey) => {
+const syncFrameHeight = (height: number) => {
+  if (!frameElm) return;
+  frameElm.style.height = `${Math.max(height, 760)}px`;
+};
+
+const showMode = (mode: ModeKey, replaceUrl = false) => {
   if (!MODE_META[mode]) return;
+  const nextHref = getModeHref(mode);
+  const currentSrc = frameElm?.getAttribute('src') || '';
+  const shouldReloadFrame = currentSrc !== nextHref;
   activeMode = mode;
   syncView();
-  window.localStorage.setItem(STORAGE_KEY, activeMode);
+  updateUrl(replaceUrl);
   logModeDebug(mode, 'navigate');
-  window.location.href = `${MODE_META[mode].page}?mode=${mode}`;
+
+  if (!frameElm) return;
+  if (shouldReloadFrame) {
+    setLoading(true);
+    frameElm.src = nextHref;
+  }
 };
 
 switchButtons.forEach((btn) => {
   btn.addEventListener('click', () => {
     const target = btn.dataset.targetPage as ModeKey | undefined;
     if (target) {
-      navigateToMode(target);
+      showMode(target);
     }
   });
 });
 
+frameElm?.addEventListener('load', () => {
+  setLoading(false);
+
+  try {
+    const sameOriginHeight =
+      frameElm.contentWindow?.document.documentElement?.scrollHeight ||
+      frameElm.contentWindow?.document.body?.scrollHeight ||
+      0;
+    if (sameOriginHeight > 0) {
+      syncFrameHeight(sameOriginHeight);
+    }
+  } catch (error) {
+    console.debug('iframe height fallback skipped', error);
+  }
+});
+
+window.addEventListener('message', (event: MessageEvent<FrameStateMessage>) => {
+  if (event.origin !== window.location.origin) return;
+  const payload = event.data;
+  if (!payload || payload.type !== 'hanzi-frame-state') return;
+
+  if (payload.mode && payload.mode !== activeMode && MODE_META[payload.mode]) {
+    activeMode = payload.mode;
+    syncView();
+    updateUrl(true);
+  }
+
+  if (typeof payload.height === 'number' && Number.isFinite(payload.height)) {
+    syncFrameHeight(payload.height);
+  }
+
+  setLoading(false);
+});
+
+window.addEventListener('popstate', () => {
+  const params = new URLSearchParams(window.location.search);
+  const queryMode = params.get('mode') as ModeKey | null;
+  const nextMode = queryMode && MODE_META[queryMode] ? queryMode : 'practice';
+  showMode(nextMode, true);
+});
+
+syncFrameHeight(880);
 syncView();
+showMode(activeMode, true);
 logModeDebug(activeMode, 'init');

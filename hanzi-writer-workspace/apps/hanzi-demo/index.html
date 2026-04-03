@@ -39,9 +39,19 @@
         </div>
       </header>
       <main class="mode-layout__content">
-        <section class="mode-intro" aria-label="模式说明">
-          <h2>首页只保留 3 个模式入口</h2>
-          <p>点击上方任一模式卡片后，将直接进入对应独立页面。原先展示在首页的模式摘要与状态信息已从正式 UI 移除，仅保留为浏览器控制台中的调试日志。</p>
+        <section class="mode-embed" aria-label="模式内容">
+          <div id="mode-loading" class="mode-embed__loading" hidden>
+            <span class="mode-embed__spinner" aria-hidden="true"></span>
+            <span>正在加载模式内容...</span>
+          </div>
+          <iframe
+            id="mode-frame"
+            class="mode-embed__frame"
+            title="汉字书写评分模式内容"
+            src="./practice.html?mode=practice"
+            loading="eager"
+            allow="clipboard-write"
+          ></iframe>
         </section>
       </main>
     </div>
