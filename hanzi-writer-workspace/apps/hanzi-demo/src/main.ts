@@ -360,14 +360,18 @@ const updateWriterOverview = () => {
 
 const updateUploadOverview = () => {
   if (uploadSummaryApiElm) {
-    uploadSummaryApiElm.textContent = apiConfigured ? '已连接' : '未配置';
+    uploadSummaryApiElm.textContent = apiConfigured ? '已完成' : '未完成';
   }
   if (uploadSummaryJobCountElm) {
     uploadSummaryJobCountElm.textContent = `${latestJobRecords.length}`;
   }
   if (uploadSummaryLastStatusElm) {
     uploadSummaryLastStatusElm.textContent =
-      latestJobRecords[0]?.status || (apiConfigured ? '等待任务' : '无法连接');
+      latestJobRecords.length
+        ? getJobStatusLabel(latestJobRecords[0]?.status)
+        : apiConfigured
+          ? '等待任务'
+          : '暂不可用';
   }
   if (uploadSummaryAverageElm) {
     const latestAverage = latestJobRecords.find(
@@ -539,6 +543,7 @@ type ScoreUpdatePayload = {
 
 type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
 type JobFilter = JobStatus | 'all';
+type ExecutionMode = 'pipeline' | 'skills';
 
 type JobRecord = {
   jobId: string;
@@ -578,6 +583,33 @@ type JobResultPayload = {
 
 type ResultCellFilter = 'all' | 'low' | 'medium' | 'good';
 type ResultCellDimensionFilter = 'all' | 'endpoints' | 'direction' | 'shape';
+
+const JOB_STATUS_LABELS: Record<JobStatus, string> = {
+  queued: '排队中',
+  running: '处理中',
+  succeeded: '已完成',
+  failed: '处理失败',
+};
+
+const EXECUTION_MODE_LABELS: Record<ExecutionMode, string> = {
+  pipeline: '标准流程',
+  skills: '分步流程',
+};
+
+const getJobStatusLabel = (status?: JobStatus) =>
+  status ? JOB_STATUS_LABELS[status] || status : '--';
+
+const getExecutionModeLabel = (mode?: string) => {
+  if (mode === 'pipeline' || mode === 'skills') {
+    return EXECUTION_MODE_LABELS[mode];
+  }
+  return '标准流程';
+};
+
+const getJobFilterLabel = (filter: JobFilter) =>
+  filter === 'all' ? '全部任务' : getJobStatusLabel(filter);
+
+const getJobDisplayName = (job: JobRecord) => job.fileName || `任务 ${job.jobId.slice(0, 8)}`;
 
 const resetScorePanel = () => {
   if (scoreTotalElm) scoreTotalElm.textContent = '--';
@@ -951,13 +983,13 @@ const setSessionMode = (mode: SessionMode) => {
   if (mode === 'upload') {
     stopQuiz();
     setWriterFeedback('上传模式：书写画布暂不可用。');
-    setSessionStatus('上传模式：请选择稿纸并等待 Hanzi Bridge 回传评分。');
+    setSessionStatus('上传模式：请选择稿纸并等待系统完成评分。');
     if (jobStatusMessage) {
       if (apiConfigured) {
-        jobStatusMessage.textContent = '正在等待 Hanzi Bridge 任务列表…';
+        jobStatusMessage.textContent = '正在读取历史任务…';
         jobStatusMessage.classList.remove('job-status-error');
       } else {
-        jobStatusMessage.textContent = '未配置 Hanzi Bridge API，无法拉取任务。';
+        jobStatusMessage.textContent = '评分服务尚未配置，暂时无法读取任务。';
         jobStatusMessage.classList.add('job-status-error');
       }
     }
@@ -969,7 +1001,7 @@ const setSessionMode = (mode: SessionMode) => {
   if (previousMode === 'upload') {
     stopJobPolling();
     if (jobStatusMessage) {
-      jobStatusMessage.textContent = '切换到上传模式后自动加载任务。';
+      jobStatusMessage.textContent = '切换到上传模式后会自动加载历史任务。';
       jobStatusMessage.classList.remove('job-status-error');
     }
     if (jobListElm) jobListElm.innerHTML = '';
@@ -1214,7 +1246,7 @@ const renderPageFilePreview = (file?: File | null) => {
 
 if (jobStatusMessage) {
   jobStatusMessage.textContent =
-    pageRole === 'upload' ? '正在初始化上传模式…' : '切换到上传模式后自动加载任务。';
+    pageRole === 'upload' ? '正在初始化上传模式…' : '切换到上传模式后会自动加载历史任务。';
 }
 
 const rawApiBase = (import.meta.env.VITE_HANZI_API_BASE as string | undefined) || '';
@@ -1262,9 +1294,9 @@ const renderJobStatusSummary = (jobs: JobRecord[]) => {
   [
     ['全部', jobs.length, 'all'],
     ['排队中', counts.queued, 'queued'],
-    ['进行中', counts.running, 'running'],
+    ['处理中', counts.running, 'running'],
     ['已完成', counts.succeeded, 'succeeded'],
-    ['失败', counts.failed, 'failed'],
+    ['处理失败', counts.failed, 'failed'],
   ].forEach(([label, count, tone]) => {
     const pill = document.createElement('div');
     pill.className = `job-status-summary__item job-status-summary__item--${tone}`;
@@ -1283,21 +1315,21 @@ const renderJobListItem = (job: JobRecord, featuredJobId: string) => {
   const header = document.createElement('div');
   header.className = 'job-pill__row';
   const name = document.createElement('span');
-  name.textContent = job.fileName || job.jobId;
+  name.textContent = getJobDisplayName(job);
   const status = document.createElement('span');
   status.className = `job-pill__status job-pill__status--${job.status}`;
-  status.textContent = job.status;
+  status.textContent = getJobStatusLabel(job.status);
   header.append(name, status);
   const meta = document.createElement('div');
   meta.className = 'job-pill__meta';
-  meta.textContent = `ID: ${job.jobId} · 创建：${formatDate(job.createdAt)} · 更新：${formatDate(
+  meta.textContent = `任务编号：${job.jobId.slice(0, 8)} · 提交：${formatDate(job.createdAt)} · 更新：${formatDate(
     job.updatedAt,
-  )} · 模式：${job.executionMode || 'pipeline'}`;
+  )} · 流程：${getExecutionModeLabel(job.executionMode)}`;
   li.append(header, meta);
   if (job.summary?.cellCount) {
     const cellInfo = document.createElement('div');
     cellInfo.className = 'job-pill__meta';
-    cellInfo.textContent = `单元格：${job.summary.cellCount}${
+    cellInfo.textContent = `格子数：${job.summary.cellCount}${
       typeof job.summary.averageScore === 'number'
         ? ` · 平均分：${formatScore(job.summary.averageScore)}`
         : ''
@@ -1357,7 +1389,7 @@ const renderJobs = (jobs: JobRecord[]) => {
     jobs.find((job) => job.status === 'succeeded')?.jobId ||
     '';
   if (!filteredJobs.length) {
-    showJobMessage(`当前筛选为 ${activeFilter}，暂无匹配任务。共 ${jobs.length} 个任务。`);
+    showJobMessage(`当前筛选为“${getJobFilterLabel(activeFilter)}”，暂无匹配任务。共 ${jobs.length} 个任务。`);
     const emptyItem = document.createElement('li');
     emptyItem.className = 'job-pill job-pill--empty';
     emptyItem.textContent = '当前筛选暂无任务，请切换状态筛选或刷新列表。';
@@ -1367,16 +1399,16 @@ const renderJobs = (jobs: JobRecord[]) => {
   showJobMessage(
     activeFilter === 'all'
       ? `共 ${jobs.length} 个任务，最新在最前。`
-      : `共 ${jobs.length} 个任务，筛选后显示 ${filteredJobs.length} 个 ${activeFilter} 任务。`,
+      : `共 ${jobs.length} 个任务，筛选后显示 ${filteredJobs.length} 个“${getJobFilterLabel(activeFilter)}”。`,
   );
   const groups =
     activeFilter === 'all'
       ? [
-          { title: '进行中', jobs: filteredJobs.filter((job) => job.status === 'running' || job.status === 'queued') },
+          { title: '处理中', jobs: filteredJobs.filter((job) => job.status === 'running' || job.status === 'queued') },
           { title: '已完成', jobs: filteredJobs.filter((job) => job.status === 'succeeded') },
-          { title: '失败任务', jobs: filteredJobs.filter((job) => job.status === 'failed') },
+          { title: '处理失败', jobs: filteredJobs.filter((job) => job.status === 'failed') },
         ]
-      : [{ title: `${activeFilter} 任务`, jobs: filteredJobs }];
+      : [{ title: getJobFilterLabel(activeFilter), jobs: filteredJobs }];
 
   groups.forEach((group) => {
     if (!group.jobs.length) return;
@@ -1395,14 +1427,14 @@ const fetchJobs = async () => {
   try {
     const response = await fetch(buildApiUrl('/api/jobs'));
     if (!response.ok) {
-      throw new Error(`API ${response.status}`);
+      throw new Error(`服务状态 ${response.status}`);
     }
     const payload = (await response.json()) as JobRecord[];
     renderJobs(payload);
   } catch (error) {
     console.error('fetch jobs failed', error);
     showJobMessage(
-      '无法拉取任务：请确认 Hanzi Bridge 已运行，并在 VITE_HANZI_API_BASE 中配置其地址。',
+      '暂时无法读取任务列表，请确认评分服务已启动并可访问。',
       true,
     );
     updateUploadOverview();
@@ -1563,7 +1595,7 @@ const setResultDetailPlaceholder = () => {
 const getResultAdvice = (cell: ResultCell) => {
   const overall = cell.score?.overall;
   if (typeof overall !== 'number') {
-    return '当前格子缺少完整评分数据，建议先确认识别结果与评分产物是否完整。';
+    return '当前格子缺少完整评分数据，建议先确认识别结果与评分结果是否完整。';
   }
   const weakest = getWeakestScoreDimension(cell.score);
   if (overall >= 0.8) {
@@ -1662,7 +1694,7 @@ const clearJobResult = (preserveFilters = false) => {
   selectedResultCellId = '';
   if (jobResultTitle) jobResultTitle.textContent = '尚未选择任务';
   if (jobResultSummary) {
-    jobResultSummary.textContent = '切换到上传模式并选择已完成的任务即可查看详情。';
+    jobResultSummary.textContent = '切换到上传模式并选择已完成的任务后，这里会显示评分详情。';
   }
   if (jobResultMetrics) jobResultMetrics.textContent = '';
   if (jobResultTotalCells) jobResultTotalCells.textContent = '--';
@@ -1769,7 +1801,7 @@ const renderJobResult = (result: JobResultPayload | null) => {
   const weakestCell = [...result.cells]
     .filter((cell) => typeof cell.score?.overall === 'number')
     .sort((a, b) => (a.score!.overall! > b.score!.overall! ? 1 : -1))[0];
-  if (jobResultTitle) jobResultTitle.textContent = `任务 ${result.jobId}`;
+  if (jobResultTitle) jobResultTitle.textContent = `任务详情 · ${result.jobId.slice(0, 8)}`;
   if (jobResultSummary) {
     jobResultSummary.textContent = `共 ${result.cells.length} 个格子，当前展示 ${filteredCells.length} 个，${
       result.metrics?.scoredCount ?? 0
@@ -1928,7 +1960,7 @@ const viewJobResult = async (jobId: string) => {
       renderJobResult(payload.result);
     } else {
       renderJobResult(null);
-      showJobMessage('该任务暂无结果文件。', true);
+      showJobMessage('该任务暂未生成评分结果。', true);
     }
   } catch (error) {
     console.error('view job result failed', error);
@@ -1962,7 +1994,7 @@ uploadForm?.addEventListener('submit', async (event) => {
     return;
   }
   if (!apiConfigured) {
-    showJobMessage('未配置 Hanzi Bridge API，无法上传稿纸。', true);
+    showJobMessage('评分服务尚未配置，暂时无法上传稿纸。', true);
     return;
   }
   if (!pageFileInput || !pageFileInput.files || pageFileInput.files.length === 0) {
@@ -2002,7 +2034,7 @@ refreshJobsBtn?.addEventListener('click', () => {
     return;
   }
   if (!apiConfigured) {
-    showJobMessage('未配置 Hanzi Bridge API，无法刷新任务。', true);
+    showJobMessage('评分服务尚未配置，暂时无法刷新任务。', true);
     return;
   }
   fetchJobs();

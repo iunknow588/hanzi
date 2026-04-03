@@ -5,25 +5,38 @@ type ModeKey = 'practice' | 'test' | 'upload';
 
 const MODE_META: Record<
   ModeKey,
-  { label: string; description: string; page: string; mobileHint: string }
+  {
+    label: string;
+    description: string;
+    page: string;
+    scene: string;
+    rhythm: string;
+    deviceHint: string;
+  }
 > = {
   practice: {
     label: '练习模式',
-    description: '适合日常临摹、纠错与实时评分，打开后即可直接进入完整 H5 书写页面。',
+    description: '适合日常临摹、纠错与实时评分，打开后即可直接进入完整书写页面。',
     page: './practice.html',
-    mobileHint: '适合触屏练习与实时反馈',
+    scene: '日常临摹与实时纠错',
+    rhythm: '边写边看分数反馈，适合连续练习',
+    deviceHint: '手机或平板触屏书写',
   },
   test: {
     label: '测试模式',
     description: '适合逐字测评与考试流程，完成当前汉字后会自动进入下一项。',
     page: './test.html',
-    mobileHint: '适合统一测评与流程化作答',
+    scene: '课堂测评与正式测试',
+    rhythm: '逐字完成后自动切换，流程更收敛',
+    deviceHint: '适合统一测评场景的移动设备',
   },
   upload: {
     label: '上传模式',
     description: '适合整页稿纸上传、任务排队和评分结果查看，便于移动端提交作业。',
     page: './upload.html',
-    mobileHint: '适合移动端拍照上传与结果追踪',
+    scene: '课后作业提交与整页复查',
+    rhythm: '先上传排队，再集中查看任务结果',
+    deviceHint: '手机拍照上传，结果可反复查看',
   },
 };
 
@@ -35,8 +48,9 @@ const modeCards = Array.from(document.querySelectorAll<HTMLElement>('[data-mode-
 const modeLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-mode-link]'));
 const currentTitleElm = document.getElementById('mode-current-title');
 const currentDescElm = document.getElementById('mode-current-desc');
-const currentPageElm = document.getElementById('mode-current-page');
-const currentMobileElm = document.getElementById('mode-current-mobile');
+const currentSceneElm = document.getElementById('mode-current-scene');
+const currentRhythmElm = document.getElementById('mode-current-rhythm');
+const currentDeviceElm = document.getElementById('mode-current-device');
 const primaryLinkElm = document.getElementById('mode-primary-link') as HTMLAnchorElement | null;
 const secondaryLinkElm = document.getElementById('mode-secondary-link') as HTMLAnchorElement | null;
 
@@ -92,10 +106,11 @@ const syncView = () => {
 
   if (currentTitleElm) currentTitleElm.textContent = meta.label;
   if (currentDescElm) currentDescElm.textContent = meta.description;
-  if (currentPageElm) currentPageElm.textContent = meta.page.replace('./', '');
-  if (currentMobileElm) currentMobileElm.textContent = meta.mobileHint;
+  if (currentSceneElm) currentSceneElm.textContent = meta.scene;
+  if (currentRhythmElm) currentRhythmElm.textContent = meta.rhythm;
+  if (currentDeviceElm) currentDeviceElm.textContent = meta.deviceHint;
   if (primaryLinkElm) primaryLinkElm.href = `${meta.page}?mode=${activeMode}`;
-  if (secondaryLinkElm) secondaryLinkElm.href = `${meta.page}?mode=${activeMode}&source=h5`;
+  if (secondaryLinkElm) secondaryLinkElm.href = `${meta.page}?mode=${activeMode}`;
 };
 
 const setMode = (mode: ModeKey, replaceUrl = false) => {

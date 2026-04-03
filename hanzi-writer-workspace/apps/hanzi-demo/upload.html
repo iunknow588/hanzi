@@ -26,12 +26,12 @@
       <header class="page-heading page-heading--upload">
         <span class="page-heading__eyebrow">上传模式</span>
         <h1>整页稿纸上传评分</h1>
-        <p>上传稿纸、排队执行并统一查看任务状态与评分结果。</p>
+        <p>上传稿纸后系统会自动排队处理，并集中展示进度和评分结果。</p>
       </header>
 
       <section class="page-overview page-overview--upload">
         <article class="page-overview__card">
-          <span class="page-overview__label">接口状态</span>
+          <span class="page-overview__label">服务配置</span>
           <strong id="upload-summary-api">待检查</strong>
         </article>
         <article class="page-overview__card">
@@ -69,24 +69,24 @@
 
           <div class="upload-panel__options">
             <div>
-              <label for="artifact-level">切分工件</label>
+              <label for="artifact-level">切分方案</label>
               <select id="artifact-level">
-                <option value="v1">v1</option>
-                <option value="v2">v2</option>
+                <option value="v1">标准方案</option>
+                <option value="v2">增强方案</option>
               </select>
             </div>
             <div>
-              <label for="score-artifact-level">评分工件</label>
+              <label for="score-artifact-level">评分方案</label>
               <select id="score-artifact-level">
-                <option value="v1">v1</option>
-                <option value="v2">v2</option>
+                <option value="v1">标准方案</option>
+                <option value="v2">增强方案</option>
               </select>
             </div>
             <div>
-              <label for="execution-mode">执行模式</label>
+              <label for="execution-mode">处理流程</label>
               <select id="execution-mode">
-                <option value="pipeline">pipeline</option>
-                <option value="skills">skills</option>
+                <option value="pipeline">标准流程</option>
+                <option value="skills">分步流程</option>
               </select>
             </div>
           </div>
@@ -104,12 +104,12 @@
           <label for="job-status-filter">状态筛选</label>
           <select id="job-status-filter">
             <option value="all">全部任务</option>
-            <option value="queued">queued</option>
-            <option value="running">running</option>
-            <option value="succeeded">succeeded</option>
-            <option value="failed">failed</option>
+            <option value="queued">排队中</option>
+            <option value="running">处理中</option>
+            <option value="succeeded">已完成</option>
+            <option value="failed">处理失败</option>
           </select>
-          <span class="job-list__hint">最近成功任务会自动高亮，方便快速查看。</span>
+          <span class="job-list__hint">最近完成的任务会自动高亮，方便优先查看结果。</span>
         </div>
         <div id="job-status-summary" class="job-status-summary"></div>
         <p id="job-status-message" class="job-status-message">尚未进入上传模式。</p>

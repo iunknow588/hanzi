@@ -20,7 +20,7 @@
           <div class="mode-layout__brand">
             <span class="mode-layout__eyebrow">汉字书写评分</span>
             <h1>模式切换</h1>
-            <p>选择模式后，下方仅加载对应的独立页面内容。</p>
+            <p>选择最适合当前任务的练习方式，进入后即可开始书写、测评或上传。</p>
           </div>
           <nav class="mode-layout__tabs" aria-label="模式切换">
             <button type="button" class="mode-switch is-active" data-target-page="practice">
@@ -41,28 +41,28 @@
       <main class="mode-layout__content">
         <section class="mode-stage" aria-labelledby="mode-current-title">
           <div class="mode-stage__panel">
-            <span class="mode-stage__eyebrow">H5 模式入口</span>
+            <span class="mode-stage__eyebrow">模式入口</span>
             <h2 id="mode-current-title">练习模式</h2>
             <p id="mode-current-desc">
-              适合日常临摹、纠错与实时评分，打开后即可直接进入完整 H5 书写页面。
+              适合日常临摹、纠错与实时评分，打开后即可直接进入完整书写页面。
             </p>
             <div class="mode-stage__actions">
               <a id="mode-primary-link" class="mode-stage__primary" href="./practice.html">进入当前模式</a>
-              <a id="mode-secondary-link" class="mode-stage__secondary" href="./practice.html">H5 全屏打开</a>
+              <a id="mode-secondary-link" class="mode-stage__secondary" href="./practice.html">单独打开页面</a>
             </div>
           </div>
-          <dl class="mode-stage__meta">
+          <dl class="mode-stage__meta" aria-label="模式摘要">
             <div class="mode-stage__meta-item">
-              <dt>页面形态</dt>
-              <dd>独立 H5 页面</dd>
+              <dt>适用场景</dt>
+              <dd id="mode-current-scene">日常临摹与实时纠错</dd>
             </div>
             <div class="mode-stage__meta-item">
-              <dt>当前文件</dt>
-              <dd id="mode-current-page">practice.html</dd>
+              <dt>操作节奏</dt>
+              <dd id="mode-current-rhythm">边写边看分数反馈，适合连续练习</dd>
             </div>
             <div class="mode-stage__meta-item">
-              <dt>移动端方向</dt>
-              <dd id="mode-current-mobile">适合触屏练习与实时反馈</dd>
+              <dt>推荐设备</dt>
+              <dd id="mode-current-device">手机或平板触屏书写</dd>
             </div>
           </dl>
         </section>
@@ -72,19 +72,19 @@
             <span class="mode-card__tag">Practice</span>
             <h3>练习模式</h3>
             <p>实时评分、即时提示，适合移动端日常练字与连续练习。</p>
-            <a data-mode-link="practice" href="./practice.html">打开 H5 页面</a>
+            <a data-mode-link="practice" href="./practice.html">进入练习页面</a>
           </article>
           <article class="mode-card" data-mode-card="test">
             <span class="mode-card__tag">Test</span>
             <h3>测试模式</h3>
             <p>逐字完成自动切换，更适合考试节奏和正式测评流程。</p>
-            <a data-mode-link="test" href="./test.html">打开 H5 页面</a>
+            <a data-mode-link="test" href="./test.html">进入测试页面</a>
           </article>
           <article class="mode-card" data-mode-card="upload">
             <span class="mode-card__tag">Upload</span>
             <h3>上传模式</h3>
             <p>整页稿纸上传、任务追踪、评分结果查看，适合移动端提交作业。</p>
-            <a data-mode-link="upload" href="./upload.html">打开 H5 页面</a>
+            <a data-mode-link="upload" href="./upload.html">进入上传页面</a>
           </article>
         </section>
       </main>
