@@ -42,6 +42,7 @@ const switchButtons = Array.from(
 const frameElm = document.getElementById('mode-frame') as HTMLIFrameElement | null;
 const loadingElm = document.getElementById('mode-loading');
 let loadingTimer = 0;
+let loadingDelayTimer = 0;
 
 const getInitialMode = (): ModeKey => {
   const params = new URLSearchParams(window.location.search);
@@ -63,21 +64,35 @@ initPwa({ page: 'home' });
 const setLoading = (isLoading: boolean) => {
   if (!loadingElm) return;
   loadingElm.hidden = !isLoading;
-  if (!isLoading && loadingTimer) {
-    window.clearTimeout(loadingTimer);
-    loadingTimer = 0;
+  if (!isLoading) {
+    if (loadingTimer) {
+      window.clearTimeout(loadingTimer);
+      loadingTimer = 0;
+    }
+    if (loadingDelayTimer) {
+      window.clearTimeout(loadingDelayTimer);
+      loadingDelayTimer = 0;
+    }
   }
 };
 
-const armLoadingTimeout = () => {
+const beginLoading = () => {
+  if (loadingDelayTimer) {
+    window.clearTimeout(loadingDelayTimer);
+  }
   if (loadingTimer) {
     window.clearTimeout(loadingTimer);
   }
+  loadingDelayTimer = window.setTimeout(() => {
+    setLoading(true);
+  }, 180);
   loadingTimer = window.setTimeout(() => {
     console.debug('[hanzi-demo] iframe loading fallback: hide overlay after timeout');
     setLoading(false);
   }, 4000);
 };
+
+setLoading(false);
 
 const logModeDebug = (mode: ModeKey, reason: 'init' | 'navigate') => {
   const meta = MODE_META[mode];
@@ -128,8 +143,7 @@ const showMode = (mode: ModeKey, replaceUrl = false) => {
 
   if (!frameElm) return;
   if (shouldReloadFrame) {
-    setLoading(true);
-    armLoadingTimeout();
+    beginLoading();
     frameElm.src = nextHref;
   }
 };

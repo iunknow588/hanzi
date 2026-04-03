@@ -14,15 +14,6 @@
     <link rel="manifest" href="/manifest.webmanifest" />
   </head>
   <body data-default-mode="practice" data-page-role="writer">
-    <header class="page-shell">
-      <a class="page-shell__home" href="./index.html?mode=practice">模式首页</a>
-      <nav class="page-shell__tabs" aria-label="页面模式导航">
-        <a class="page-shell__tab is-active" href="./practice.html?mode=practice">练习模式</a>
-        <a class="page-shell__tab" href="./test.html?mode=test">测试模式</a>
-        <a class="page-shell__tab" href="./upload.html?mode=upload">上传模式</a>
-      </nav>
-      <button type="button" id="mobile-controls-toggle" class="page-shell__toggle">收起设置</button>
-    </header>
     <div id="app">
       <section class="controls">
         <header class="page-heading">
@@ -30,6 +21,7 @@
           <h1>汉字练习与实时评分</h1>
           <p>配置字帖后即可开始书写，并实时查看每一笔和整字反馈。</p>
         </header>
+        <button type="button" id="mobile-controls-toggle" class="controls-toggle">收起设置</button>
 
         <section class="page-overview">
           <article class="page-overview__card">
@@ -172,17 +164,6 @@
         <p id="loader-status" class="status-text">正在初始化…</p>
       </section>
     </div>
-    <nav class="page-dock" aria-label="底部模式导航">
-      <a class="page-dock__item is-active" href="./practice.html?mode=practice">
-        <span class="page-dock__label">练习</span>
-      </a>
-      <a class="page-dock__item" href="./test.html?mode=test">
-        <span class="page-dock__label">测试</span>
-      </a>
-      <a class="page-dock__item" href="./upload.html?mode=upload">
-        <span class="page-dock__label">上传</span>
-      </a>
-    </nav>
 
     <script type="module" src="/src/main.ts"></script>
   </body>
