@@ -24,6 +24,22 @@ load_node_env() {
       nvm use "$(cat "$nvmrc_file")" >/dev/null
     fi
   fi
+  hash -r
+}
+
+run_vercel() {
+  if command -v vercel >/dev/null 2>&1; then
+    vercel "$@"
+    return
+  fi
+
+  if command -v npx >/dev/null 2>&1; then
+    npx --yes vercel "$@"
+    return
+  fi
+
+  log_error "未检测到 vercel CLI，且无法使用 npx 自动拉起 vercel"
+  exit 1
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -54,11 +70,6 @@ if [ ! -d "$SOURCE_PATH" ]; then
 fi
 
 load_node_env
-
-if ! command -v vercel >/dev/null 2>&1; then
-  log_error "未检测到 vercel CLI，请先执行: npm i -g vercel"
-  exit 1
-fi
 
 extract_field() {
   local file="$1"
@@ -96,13 +107,13 @@ log_info "Vercel Project: $HANZI_VERCEL_PROJECT"
 log_info "环境: $ENVIRONMENT"
 
 log_info "步骤 1: 验证远端项目"
-if ! vercel project inspect "$HANZI_VERCEL_PROJECT" --scope "$HANZI_VERCEL_SCOPE" >/dev/null 2>&1; then
+if ! run_vercel project inspect "$HANZI_VERCEL_PROJECT" --scope "$HANZI_VERCEL_SCOPE" >/dev/null 2>&1; then
   log_error "Vercel 项目不存在或无权限: $HANZI_VERCEL_SCOPE/$HANZI_VERCEL_PROJECT"
   exit 1
 fi
 
 log_info "步骤 2: link 项目"
-vercel link --yes --scope "$HANZI_VERCEL_SCOPE" --project "$HANZI_VERCEL_PROJECT"
+run_vercel link --yes --scope "$HANZI_VERCEL_SCOPE" --project "$HANZI_VERCEL_PROJECT"
 verify_link_result
 
 BUILD_PATH="$SOURCE_PATH/$HANZI_VERCEL_BUILD_DIR"
@@ -128,14 +139,14 @@ cp -R "$SOURCE_PATH/.vercel" "$TMP_VERCEL_DIR"
 
 log_info "步骤 3: 部署 ($HANZI_VERCEL_BUILD_DIR)"
 if [ "$ENVIRONMENT" = "production" ]; then
-  vercel deploy "$BUILD_PATH" --prod --yes --scope "$HANZI_VERCEL_SCOPE" --logs --archive="$HANZI_VERCEL_ARCHIVE"
+  run_vercel deploy "$BUILD_PATH" --prod --yes --scope "$HANZI_VERCEL_SCOPE" --logs --archive="$HANZI_VERCEL_ARCHIVE"
 else
-  vercel deploy "$BUILD_PATH" --yes --scope "$HANZI_VERCEL_SCOPE" --logs --archive="$HANZI_VERCEL_ARCHIVE"
+  run_vercel deploy "$BUILD_PATH" --yes --scope "$HANZI_VERCEL_SCOPE" --logs --archive="$HANZI_VERCEL_ARCHIVE"
 fi
 
 rm -rf "$TMP_VERCEL_DIR"
 
 log_info "步骤 4: 展示最近部署"
-vercel list --yes --scope "$HANZI_VERCEL_SCOPE" | head -n 20 || true
+run_vercel list --yes --scope "$HANZI_VERCEL_SCOPE" | head -n 20 || true
 
 log_info "Vercel 部署完成"

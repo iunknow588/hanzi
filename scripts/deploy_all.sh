@@ -29,6 +29,27 @@ load_node_env() {
       nvm use "$(cat "$nvmrc_file")" >/dev/null
     fi
   fi
+  hash -r
+}
+
+run_yarn() {
+  local yarn_version
+  if command -v corepack >/dev/null 2>&1; then
+    corepack yarn "$@"
+    return
+  fi
+
+  if command -v yarn >/dev/null 2>&1; then
+    yarn_version="$(yarn --version 2>/dev/null || true)"
+    case "$yarn_version" in
+      1.*)
+        yarn "$@"
+        return
+        ;;
+    esac
+  fi
+
+  npx --yes yarn@1.22.22 "$@"
 }
 
 show_help() {
@@ -88,8 +109,8 @@ if [ "$HANZI_RUN_VERCEL" = "true" ]; then
     (
       load_node_env
       cd "$PROJECT_ROOT/hanzi-writer-workspace" && \
-      yarn install >/dev/null && \
-      yarn demo:build >/dev/null
+      run_yarn install >/dev/null && \
+      run_yarn demo:build >/dev/null
     )
   else
     log_warn "未找到 hanzi-writer-workspace，跳过 demo:build"
