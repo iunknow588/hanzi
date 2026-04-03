@@ -41,6 +41,7 @@ const switchButtons = Array.from(
 );
 const frameElm = document.getElementById('mode-frame') as HTMLIFrameElement | null;
 const loadingElm = document.getElementById('mode-loading');
+let loadingTimer = 0;
 
 const getInitialMode = (): ModeKey => {
   const params = new URLSearchParams(window.location.search);
@@ -62,6 +63,20 @@ initPwa({ page: 'home' });
 const setLoading = (isLoading: boolean) => {
   if (!loadingElm) return;
   loadingElm.hidden = !isLoading;
+  if (!isLoading && loadingTimer) {
+    window.clearTimeout(loadingTimer);
+    loadingTimer = 0;
+  }
+};
+
+const armLoadingTimeout = () => {
+  if (loadingTimer) {
+    window.clearTimeout(loadingTimer);
+  }
+  loadingTimer = window.setTimeout(() => {
+    console.debug('[hanzi-demo] iframe loading fallback: hide overlay after timeout');
+    setLoading(false);
+  }, 4000);
 };
 
 const logModeDebug = (mode: ModeKey, reason: 'init' | 'navigate') => {
@@ -114,6 +129,7 @@ const showMode = (mode: ModeKey, replaceUrl = false) => {
   if (!frameElm) return;
   if (shouldReloadFrame) {
     setLoading(true);
+    armLoadingTimeout();
     frameElm.src = nextHref;
   }
 };
@@ -141,6 +157,11 @@ frameElm?.addEventListener('load', () => {
   } catch (error) {
     console.debug('iframe height fallback skipped', error);
   }
+});
+
+frameElm?.addEventListener('error', () => {
+  console.warn('[hanzi-demo] iframe failed to load', frameElm.src);
+  setLoading(false);
 });
 
 window.addEventListener('message', (event: MessageEvent<FrameStateMessage>) => {
