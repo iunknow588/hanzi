@@ -25,10 +25,11 @@ yarn demo:build
 
 ## 与 Hanzi ⇄ Coze Bridge 协同
 
-默认情况下前端会请求同域的 `/api/jobs`。如需指向本地桥接服务，可在构建或开发时设置：
+开发模式下前端默认请求同域的 `/api/jobs`。生产环境需显式配置 `VITE_HANZI_API_BASE` 指向可公网访问的 Hanzi Bridge 服务，例如：
 
 ```bash
 VITE_HANZI_API_BASE=http://localhost:8787 yarn demo:dev
+VITE_HANZI_API_BASE=https://your-bridge.example.com yarn demo:build
 ```
 
 启动服务：

@@ -1078,7 +1078,7 @@ const setSessionMode = (mode: SessionMode) => {
         jobStatusMessage.textContent = '正在读取历史任务…';
         jobStatusMessage.classList.remove('job-status-error');
       } else {
-        jobStatusMessage.textContent = '评分服务尚未配置，暂时无法读取任务。';
+        jobStatusMessage.textContent = uploadApiMissingMessage;
         jobStatusMessage.classList.add('job-status-error');
       }
     }
@@ -1341,10 +1341,10 @@ if (jobStatusMessage) {
 
 const rawApiBase = (import.meta.env.VITE_HANZI_API_BASE as string | undefined) || '';
 const normalizedApiBase = rawApiBase.endsWith('/') ? rawApiBase.slice(0, -1) : rawApiBase;
-const allowRelativeApi =
-  typeof window !== 'undefined' &&
-  (window.location.protocol === 'http:' || window.location.protocol === 'https:');
+const allowRelativeApi = import.meta.env.DEV;
 const apiConfigured = Boolean(normalizedApiBase) || allowRelativeApi;
+const uploadApiMissingMessage =
+  '上传后端未部署到当前站点，请先配置 VITE_HANZI_API_BASE 指向 Hanzi Bridge 服务。';
 const buildApiUrl = (pathname: string) =>
   normalizedApiBase ? `${normalizedApiBase}${pathname}` : pathname;
 const getActiveJobFilter = (): JobFilter => {
@@ -2086,7 +2086,7 @@ uploadForm?.addEventListener('submit', async (event) => {
     return;
   }
   if (!apiConfigured) {
-    showJobMessage('评分服务尚未配置，暂时无法上传稿纸。', true);
+    showJobMessage(uploadApiMissingMessage, true);
     return;
   }
   if (!pageFileInput || !pageFileInput.files || pageFileInput.files.length === 0) {
@@ -2126,7 +2126,7 @@ refreshJobsBtn?.addEventListener('click', () => {
     return;
   }
   if (!apiConfigured) {
-    showJobMessage('评分服务尚未配置，暂时无法刷新任务。', true);
+    showJobMessage(uploadApiMissingMessage, true);
     return;
   }
   fetchJobs();
