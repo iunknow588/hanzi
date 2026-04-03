@@ -101,17 +101,22 @@ a {
 
 .mode-embed__loading {
   position: absolute;
-  inset: 0;
+  top: 16px;
+  right: 16px;
   z-index: 2;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 10px;
-  background: rgba(248, 250, 252, 0.72);
+  padding: 10px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
   color: #0f172a;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   font-weight: 600;
-  backdrop-filter: blur(4px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
 }
 
 .mode-embed__spinner {
@@ -161,6 +166,13 @@ a {
 
   .mode-embed {
     min-height: calc(100vh - 240px);
+  }
+
+  .mode-embed__loading {
+    top: 12px;
+    right: 12px;
+    padding: 9px 12px;
+    font-size: 0.82rem;
   }
 }
 
