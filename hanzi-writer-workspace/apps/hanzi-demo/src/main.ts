@@ -6,10 +6,34 @@ import './style.css';
 
 type SessionMode = 'practice' | 'test' | 'upload';
 type PageRole = 'writer' | 'upload';
+type ParentFrameMessage = {
+  type: 'hanzi-frame-state';
+  mode: SessionMode;
+  pageRole: PageRole;
+  title: string;
+  height: number;
+};
 
 const pageRole = (document.body?.dataset.pageRole as PageRole | undefined) ?? 'writer';
 const initialSessionMode =
   (document.body?.dataset.defaultMode as SessionMode | undefined) ?? 'practice';
+
+const notifyParentFrame = () => {
+  if (window.parent === window) return;
+  const payload: ParentFrameMessage = {
+    type: 'hanzi-frame-state',
+    mode: sessionMode,
+    pageRole,
+    title: document.title,
+    height: Math.max(
+      document.body.scrollHeight,
+      document.body.offsetHeight,
+      document.documentElement.scrollHeight,
+      document.documentElement.offsetHeight,
+    ),
+  };
+  window.parent.postMessage(payload, window.location.origin);
+};
 
 const loader = createCharDataLoader({
   source: 'hybrid',
@@ -33,6 +57,14 @@ const sequenceSampleBtn = document.getElementById('sequence-sample') as HTMLButt
 const sequenceResetBtn = document.getElementById('sequence-reset') as HTMLButtonElement | null;
 const writerFeedbackElm = document.getElementById('writer-feedback');
 const sessionStatusElm = document.getElementById('session-status');
+const summaryActiveCharElm = document.getElementById('summary-active-char');
+const summaryRemainingCountElm = document.getElementById('summary-remaining-count');
+const summaryOverallScoreElm = document.getElementById('summary-overall-score');
+const summaryHistoryCountElm = document.getElementById('summary-history-count');
+const uploadSummaryApiElm = document.getElementById('upload-summary-api');
+const uploadSummaryJobCountElm = document.getElementById('upload-summary-job-count');
+const uploadSummaryLastStatusElm = document.getElementById('upload-summary-last-status');
+const uploadSummaryAverageElm = document.getElementById('upload-summary-average');
 const modeButtons = Array.from(
   document.querySelectorAll<HTMLButtonElement>('[data-mode]'),
 );
@@ -43,6 +75,10 @@ const writerScoreLogList = document.getElementById(
   'stroke-history-list',
 ) as HTMLElement | null;
 const strokeHistoryClearBtn = document.getElementById('stroke-history-clear');
+const characterResultElm = document.getElementById('character-result');
+const characterResultLabelElm = document.getElementById('character-result-label');
+const characterResultScoreElm = document.getElementById('character-result-score');
+const characterResultNoteElm = document.getElementById('character-result-note');
 
 if (!writerContainer && pageRole === 'writer') {
   throw new Error('#writer element missing');
@@ -65,18 +101,21 @@ const setStatus = (msg: string) => {
   if (statusElm) {
     statusElm.textContent = msg;
   }
+  notifyParentFrame();
 };
 
 const setWriterFeedback = (msg: string) => {
   if (writerFeedbackElm) {
     writerFeedbackElm.textContent = msg;
   }
+  notifyParentFrame();
 };
 
 const setSessionStatus = (msg: string) => {
   if (sessionStatusElm) {
     sessionStatusElm.textContent = msg;
   }
+  notifyParentFrame();
 };
 
 const defaultSequenceSample = '天地玄黄宇宙洪荒';
@@ -101,6 +140,49 @@ const strokeHistory: StrokeHistoryEntry[] = [];
 let currentCharStrokePaths: string[] = [];
 let currentCharUserPaths: string[] = [];
 let activeCharacter = initialSessionMode === 'upload' ? '' : '我';
+let latestJobRecords: JobRecord[] = [];
+let latestCharacterScore: number | null = null;
+
+const updateWriterOverview = () => {
+  if (summaryActiveCharElm) {
+    summaryActiveCharElm.textContent = activeCharacter || '--';
+  }
+  if (summaryRemainingCountElm) {
+    const remaining =
+      sequenceQueue.length && sequenceIndex >= -1
+        ? Math.max(sequenceQueue.length - (sequenceIndex + 1), 0)
+        : 0;
+    summaryRemainingCountElm.textContent = `${remaining}`;
+  }
+  if (summaryOverallScoreElm) {
+    summaryOverallScoreElm.textContent = scoreTotalElm?.textContent || '--';
+  }
+  if (summaryHistoryCountElm) {
+    summaryHistoryCountElm.textContent = `${strokeHistory.length}`;
+  }
+  notifyParentFrame();
+};
+
+const updateUploadOverview = () => {
+  if (uploadSummaryApiElm) {
+    uploadSummaryApiElm.textContent = apiConfigured ? '已连接' : '未配置';
+  }
+  if (uploadSummaryJobCountElm) {
+    uploadSummaryJobCountElm.textContent = `${latestJobRecords.length}`;
+  }
+  if (uploadSummaryLastStatusElm) {
+    uploadSummaryLastStatusElm.textContent =
+      latestJobRecords[0]?.status || (apiConfigured ? '等待任务' : '无法连接');
+  }
+  if (uploadSummaryAverageElm) {
+    const latestAverage = latestJobRecords.find(
+      (job) => typeof job.summary?.averageScore === 'number',
+    )?.summary?.averageScore;
+    uploadSummaryAverageElm.textContent =
+      typeof latestAverage === 'number' ? formatScore(latestAverage) : '--';
+  }
+  notifyParentFrame();
+};
 
 const renderSequencePreview = () => {
   if (!sequencePreviewElm) return;
@@ -141,9 +223,11 @@ const updateSequenceStatus = () => {
     sequenceRemainingElm.textContent = `${remaining}`;
   }
   renderSequencePreview();
+  updateWriterOverview();
 };
 
 updateSequenceStatus();
+updateWriterOverview();
 
 const applyModePanels = () => {
   if (!bodyElm) return;
@@ -219,12 +303,14 @@ const logCompletedCharacter = () => {
   }
   currentCharUserPaths = [];
   renderStrokeHistory();
+  updateWriterOverview();
 };
 
 renderStrokeHistory();
 strokeHistoryClearBtn?.addEventListener('click', () => {
   strokeHistory.length = 0;
   renderStrokeHistory();
+  updateWriterOverview();
 });
 
 type ScoreComponents = {
@@ -249,6 +335,7 @@ type ScoreUpdatePayload = {
 };
 
 type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
+type JobFilter = JobStatus | 'all';
 
 type JobRecord = {
   jobId: string;
@@ -286,19 +373,137 @@ type JobResultPayload = {
   cells: ResultCell[];
 };
 
+type ResultCellFilter = 'all' | 'low' | 'medium' | 'good';
+type ResultCellDimensionFilter = 'all' | 'endpoints' | 'direction' | 'shape';
+
 const resetScorePanel = () => {
   if (scoreTotalElm) scoreTotalElm.textContent = '--';
   if (scoreListElm) {
     scoreListElm.innerHTML = '<li class="score-pending">等待评分…</li>';
   }
+  latestCharacterScore = null;
+  updateWriterOverview();
 };
 
 const formatScore = (value: number) => `${Math.round(value * 100)}`;
+const formatScoreText = (value?: number | null) =>
+  typeof value === 'number' ? `${formatScore(value)} 分` : '--';
 
 const getScoreBand = (value: number) => {
   if (value >= 0.8) return 'good';
   if (value >= 0.5) return 'medium';
   return 'poor';
+};
+
+const getScoreBandLabel = (value: number) => {
+  const band = getScoreBand(value);
+  if (band === 'good') return '表现稳定';
+  if (band === 'medium') return '需要微调';
+  return '重点关注';
+};
+
+const getWeakestScoreDimension = (score?: ResultCell['score'] | null) => {
+  if (!score) return null;
+  const entries = [
+    ['起止', score.endpoints],
+    ['走向', score.direction],
+    ['形态', score.shape],
+  ].filter((entry): entry is [string, number] => typeof entry[1] === 'number');
+  if (!entries.length) return null;
+  return entries.sort((a, b) => a[1] - b[1])[0];
+};
+
+const getWeakestScoreDimensionKey = (score?: ResultCell['score'] | null) => {
+  if (!score) return null;
+  const entries = [
+    ['endpoints', score.endpoints],
+    ['direction', score.direction],
+    ['shape', score.shape],
+  ].filter((entry): entry is [ResultCellDimensionFilter, number] => typeof entry[1] === 'number');
+  if (!entries.length) return null;
+  return entries.sort((a, b) => a[1] - b[1])[0][0];
+};
+
+const getDimensionLabel = (key: ResultCellDimensionFilter | null) => {
+  if (key === 'endpoints') return '起止';
+  if (key === 'direction') return '走向';
+  if (key === 'shape') return '形态';
+  return '全部维度';
+};
+
+const getResultCellFilter = (): ResultCellFilter => {
+  const value = jobResultFilter?.value as ResultCellFilter | undefined;
+  if (value === 'low' || value === 'medium' || value === 'good') {
+    return value;
+  }
+  return 'all';
+};
+
+const getFilteredResultCells = (cells: ResultCell[]) => {
+  const activeFilter = getResultCellFilter();
+  const activeDimensionFilter = getResultDimensionFilter();
+  const query = jobResultQuery?.value.trim().toLowerCase() || '';
+  return cells.filter((cell) => {
+    if (activeFilter !== 'all') {
+      const overall = cell.score?.overall;
+      if (typeof overall !== 'number') return false;
+      const band = getScoreBand(overall);
+      if (activeFilter === 'low' && band !== 'poor') return false;
+      if (activeFilter === 'medium' && band !== 'medium') return false;
+      if (activeFilter === 'good' && band !== 'good') return false;
+    }
+    if (activeDimensionFilter !== 'all') {
+      const weakestKey = getWeakestScoreDimensionKey(cell.score);
+      if (weakestKey !== activeDimensionFilter) return false;
+    }
+    if (!query) return true;
+    const haystack = `${cell.id} ${cell.char || ''}`.toLowerCase();
+    return haystack.includes(query);
+  });
+};
+
+const resetCharacterResult = (note?: string) => {
+  if (!characterResultElm) return;
+  characterResultElm.className = 'character-result character-result--pending';
+  if (characterResultLabelElm) {
+    characterResultLabelElm.textContent =
+      sessionMode === 'test' ? '测试结果' : '整字结果';
+  }
+  if (characterResultScoreElm) {
+    characterResultScoreElm.textContent = '等待完成';
+  }
+  if (characterResultNoteElm) {
+    characterResultNoteElm.textContent =
+      note || '完成一个汉字后，这里会给出整字评价与建议。';
+  }
+  notifyParentFrame();
+};
+
+const showCharacterResult = (char: string, score: number) => {
+  if (!characterResultElm) return;
+  const band = getScoreBand(score);
+  const bandLabelMap = {
+    good: '表现优秀',
+    medium: '基本达标',
+    poor: '仍需加强',
+  } as const;
+  const noteMap = {
+    good: `“${char}” 的结构和笔势都比较稳定，可以继续保持当前节奏。`,
+    medium: `“${char}” 已基本成形，建议再关注起收笔与整体重心。`,
+    poor: `“${char}” 与标准字还有差距，建议放慢速度并先观察笔顺结构。`,
+  } as const;
+  characterResultElm.className = `character-result character-result--${band}`;
+  if (characterResultLabelElm) {
+    characterResultLabelElm.textContent =
+      sessionMode === 'test' ? `测试结果 · ${char}` : `练习结果 · ${char}`;
+  }
+  if (characterResultScoreElm) {
+    characterResultScoreElm.textContent = `${bandLabelMap[band]} · ${formatScore(score)} 分`;
+  }
+  if (characterResultNoteElm) {
+    characterResultNoteElm.textContent = noteMap[band];
+  }
+  notifyParentFrame();
 };
 
 const renderScoreHistory = (history: Array<ScoreEntry | null>) => {
@@ -326,13 +531,16 @@ const renderScoreHistory = (history: Array<ScoreEntry | null>) => {
     }
     scoreListElm.appendChild(li);
   });
+  notifyParentFrame();
 };
 
 const handleScoreUpdate = (payload: ScoreUpdatePayload) => {
+  latestCharacterScore = payload.overallScore;
   if (scoreTotalElm) {
     scoreTotalElm.textContent = `${formatScore(payload.overallScore)}`;
   }
   renderScoreHistory(payload.history);
+  updateWriterOverview();
   setWriterFeedback(
     `第 ${payload.strokeIndex + 1} 笔：${formatScore(payload.score.overall)} 分（总分 ${formatScore(
       payload.overallScore,
@@ -364,8 +572,10 @@ const createWriter = (char: string) => {
 const loadCharacter = (char: string) => {
   if (!char || !currentWriter) return;
   activeCharacter = char;
+  updateWriterOverview();
   const writer = currentWriter;
   resetScorePanel();
+  resetCharacterResult(`已切换到“${char}”，完成整字后显示评价。`);
   currentCharUserPaths = [];
   const hasLocal = Boolean(localDataMap[char as keyof typeof localDataMap]);
   setStatus(hasLocal ? `使用本地缓存加载 ${char}` : `从 CDN 拉取 ${char} 数据...`);
@@ -417,7 +627,9 @@ const applySequenceFromInput = () => {
   if (!nextQueue.length) {
     setStatus('请输入至少一个汉字后再开始序列练习。');
     updateSequenceStatus();
+    updateWriterOverview();
     setSessionStatus('尚未载入字帖，请输入汉字。');
+    resetCharacterResult('尚未载入字帖，请先输入汉字再开始。');
     return;
   }
   setStatus(`已载入 ${nextQueue.length} 个汉字，自动加载第一个。`);
@@ -451,6 +663,7 @@ const updateModeButtons = () => {
     btn.classList.toggle('is-active', target === sessionMode);
   });
   applyModePanels();
+  notifyParentFrame();
 };
 
 const syncHintToggleState = () => {
@@ -489,16 +702,22 @@ const startQuiz = () => {
     onCorrectStroke: handleCorrectStroke,
     onComplete: () => {
       logCompletedCharacter();
+      if (typeof latestCharacterScore === 'number') {
+        showCharacterResult(activeCharacter, latestCharacterScore);
+      }
       if (sessionMode === 'practice') {
         setSessionStatus('该字练习完成，可继续书写或切换其它汉字。');
         setTimeout(() => startQuiz(), 400);
       } else {
-        const advanced = advanceSequenceChar();
-        if (!advanced) {
-          setSessionStatus('测试完成，字帖已写完，可重新开始。');
-        } else {
-          setSessionStatus('已切换到下一测试字，继续完成全部笔画。');
-        }
+        setSessionStatus('本字测试完成，稍后自动切换到下一个字。');
+        window.setTimeout(() => {
+          const advanced = advanceSequenceChar();
+          if (!advanced) {
+            setSessionStatus('测试完成，字帖已写完，可重新开始。');
+          } else {
+            setSessionStatus('已切换到下一测试字，继续完成全部笔画。');
+          }
+        }, 900);
       }
     },
   });
@@ -510,6 +729,11 @@ const setSessionMode = (mode: SessionMode) => {
   sessionMode = mode;
   updateModeButtons();
   syncHintToggleState();
+  resetCharacterResult(
+    mode === 'test'
+      ? '测试模式下完成整字后，会先显示结果再自动切换。'
+      : '完成一个汉字后，这里会给出整字评价与建议。',
+  );
   if (mode === 'upload') {
     stopQuiz();
     setWriterFeedback('上传模式：书写画布暂不可用。');
@@ -543,6 +767,7 @@ const setSessionMode = (mode: SessionMode) => {
       : '已切换到测试模式，禁用提示并逐字评分。',
   );
   startQuiz();
+  notifyParentFrame();
 };
 
 if (writerContainer) {
@@ -607,6 +832,7 @@ sequenceResetBtn?.addEventListener('click', () => {
   setStatus('已清空字帖内容，输入新的字帖后重新载入。');
   setSessionStatus('字帖已清空，请输入新的汉字内容。');
   updateSequenceStatus();
+  resetCharacterResult('字帖已清空，等待新的汉字内容。');
 });
 
 sequenceInput?.addEventListener('keydown', (event) => {
@@ -618,6 +844,7 @@ sequenceInput?.addEventListener('keydown', (event) => {
 
 restartQuizBtn?.addEventListener('click', () => {
   resetScorePanel();
+  resetCharacterResult('已重新开始，请完成整字后查看新的评价。');
   startQuiz();
 });
 
@@ -646,14 +873,38 @@ const scoreArtifactSelect = document.getElementById('score-artifact-level') as H
 const executionModeSelect = document.getElementById('execution-mode') as HTMLSelectElement | null;
 const jobListElm = document.getElementById('job-list-entries');
 const jobStatusMessage = document.getElementById('job-status-message');
+const jobStatusFilterSelect = document.getElementById(
+  'job-status-filter',
+) as HTMLSelectElement | null;
 const refreshJobsBtn = document.getElementById('refresh-jobs');
 const jobResultPanel = document.getElementById('job-result-panel');
 const jobResultTitle = document.getElementById('job-result-title');
 const jobResultSummary = document.getElementById('job-result-summary');
 const jobResultMetrics = document.getElementById('job-result-metrics');
+const jobResultTotalCells = document.getElementById('job-result-total-cells');
+const jobResultLowCount = document.getElementById('job-result-low-count');
+const jobResultVisibleCount = document.getElementById('job-result-visible-count');
+const jobResultWeakestCell = document.getElementById('job-result-weakest-cell');
 const jobResultLowScore = document.getElementById('job-result-low-score');
+const jobResultFilter = document.getElementById('job-result-filter') as HTMLSelectElement | null;
+const jobResultDimensionFilter = document.getElementById(
+  'job-result-dimension-filter',
+) as HTMLSelectElement | null;
+const jobResultQuery = document.getElementById('job-result-query') as HTMLInputElement | null;
+const jobResultReset = document.getElementById('job-result-reset');
+const jobResultDetail = document.getElementById('job-result-detail');
+const jobResultDetailTitle = document.getElementById('job-result-detail-title');
+const jobResultDetailBand = document.getElementById('job-result-detail-band');
+const jobResultDetailSummary = document.getElementById('job-result-detail-summary');
+const jobResultDetailOverall = document.getElementById('job-result-detail-overall');
+const jobResultDetailEndpoints = document.getElementById('job-result-detail-endpoints');
+const jobResultDetailDirection = document.getElementById('job-result-detail-direction');
+const jobResultDetailShape = document.getElementById('job-result-detail-shape');
+const jobResultDetailAdvice = document.getElementById('job-result-detail-advice');
 const jobResultCells = document.getElementById('job-result-cells');
 const jobResultClose = document.getElementById('job-result-close');
+let currentJobResult: JobResultPayload | null = null;
+let selectedResultCellId = '';
 
 if (jobStatusMessage) {
   jobStatusMessage.textContent =
@@ -666,11 +917,21 @@ const allowRelativeApi = import.meta.env.DEV;
 const apiConfigured = Boolean(normalizedApiBase) || allowRelativeApi;
 const buildApiUrl = (pathname: string) =>
   normalizedApiBase ? `${normalizedApiBase}${pathname}` : pathname;
+const getActiveJobFilter = (): JobFilter => {
+  const rawValue = jobStatusFilterSelect?.value as JobFilter | undefined;
+  if (rawValue === 'queued' || rawValue === 'running' || rawValue === 'succeeded' || rawValue === 'failed') {
+    return rawValue;
+  }
+  return 'all';
+};
+
+updateUploadOverview();
 
 const showJobMessage = (message: string, isError = false) => {
   if (!jobStatusMessage) return;
   jobStatusMessage.textContent = message;
   jobStatusMessage.classList.toggle('job-status-error', isError);
+  updateUploadOverview();
 };
 
 const formatDate = (value?: string) => {
@@ -684,16 +945,40 @@ const formatDate = (value?: string) => {
 };
 
 const renderJobs = (jobs: JobRecord[]) => {
+  latestJobRecords = jobs;
+  updateUploadOverview();
   if (!jobListElm) return;
   jobListElm.innerHTML = '';
   if (!jobs.length) {
     showJobMessage('暂无任务，等待上传。');
     return;
   }
-  showJobMessage(`共 ${jobs.length} 个任务，最新在最前。`);
-  jobs.forEach((job) => {
+  const activeFilter = getActiveJobFilter();
+  const filteredJobs =
+    activeFilter === 'all' ? jobs : jobs.filter((job) => job.status === activeFilter);
+  const featuredJobId =
+    filteredJobs.find((job) => job.status === 'succeeded')?.jobId ||
+    jobs.find((job) => job.status === 'succeeded')?.jobId ||
+    '';
+  if (!filteredJobs.length) {
+    showJobMessage(`当前筛选为 ${activeFilter}，暂无匹配任务。共 ${jobs.length} 个任务。`);
+    const emptyItem = document.createElement('li');
+    emptyItem.className = 'job-pill job-pill--empty';
+    emptyItem.textContent = '当前筛选暂无任务，请切换状态筛选或刷新列表。';
+    jobListElm.appendChild(emptyItem);
+    return;
+  }
+  showJobMessage(
+    activeFilter === 'all'
+      ? `共 ${jobs.length} 个任务，最新在最前。`
+      : `共 ${jobs.length} 个任务，筛选后显示 ${filteredJobs.length} 个 ${activeFilter} 任务。`,
+  );
+  filteredJobs.forEach((job) => {
     const li = document.createElement('li');
     li.className = 'job-pill';
+    if (featuredJobId && job.jobId === featuredJobId && job.status === 'succeeded') {
+      li.classList.add('job-pill--featured');
+    }
     const header = document.createElement('div');
     header.className = 'job-pill__row';
     const name = document.createElement('span');
@@ -769,6 +1054,7 @@ const fetchJobs = async () => {
       '无法拉取任务：请确认 Hanzi Bridge 已运行，并在 VITE_HANZI_API_BASE 中配置其地址。',
       true,
     );
+    updateUploadOverview();
   }
 };
 
@@ -794,40 +1080,177 @@ const parseErrorResponse = async (response: Response) => {
   }
 };
 
+const focusResultCell = (cellId: string) => {
+  selectedResultCellId = cellId;
+  if (jobResultFilter) {
+    jobResultFilter.value = 'all';
+  }
+  if (jobResultDimensionFilter) {
+    jobResultDimensionFilter.value = 'all';
+  }
+  if (jobResultQuery) {
+    jobResultQuery.value = cellId;
+  }
+  renderJobResult(currentJobResult);
+};
+
+const getResultDimensionFilter = (): ResultCellDimensionFilter => {
+  const value = jobResultDimensionFilter?.value as ResultCellDimensionFilter | undefined;
+  if (value === 'endpoints' || value === 'direction' || value === 'shape') {
+    return value;
+  }
+  return 'all';
+};
+
+const setResultDetailPlaceholder = () => {
+  if (jobResultDetail) {
+    jobResultDetail.className = 'job-result__detail job-result__detail--empty';
+  }
+  if (jobResultDetailTitle) jobResultDetailTitle.textContent = '等待选择格子';
+  if (jobResultDetailBand) jobResultDetailBand.textContent = '--';
+  if (jobResultDetailSummary) {
+    jobResultDetailSummary.textContent =
+      '点击低分重点卡片或下方表格行后，这里会显示该格子的详细解释。';
+  }
+  if (jobResultDetailOverall) jobResultDetailOverall.textContent = '总分：--';
+  if (jobResultDetailEndpoints) jobResultDetailEndpoints.textContent = '起止：--';
+  if (jobResultDetailDirection) jobResultDetailDirection.textContent = '走向：--';
+  if (jobResultDetailShape) jobResultDetailShape.textContent = '形态：--';
+  if (jobResultDetailAdvice) jobResultDetailAdvice.textContent = '等待详情数据。';
+};
+
+const getResultAdvice = (cell: ResultCell) => {
+  const overall = cell.score?.overall;
+  if (typeof overall !== 'number') {
+    return '当前格子缺少完整评分数据，建议先确认识别结果与评分产物是否完整。';
+  }
+  const weakest = getWeakestScoreDimension(cell.score);
+  if (overall >= 0.8) {
+    return '该格子整体表现稳定，可作为当前页的参考写法继续保持。';
+  }
+  if (!weakest) {
+    return '该格子分数一般，建议回看原图并检查结构重心和笔顺节奏。';
+  }
+  if (weakest[0] === '起止') {
+    return '建议重点检查起笔和收笔位置，先把落点对准标准格，再调整笔画长度。';
+  }
+  if (weakest[0] === '走向') {
+    return '建议重点检查笔画倾斜方向和转折角度，避免线条方向偏移。';
+  }
+  return '建议重点检查字形结构与部件比例，先稳定重心，再微调外轮廓。';
+};
+
+const renderSelectedResultCell = (cells: ResultCell[]) => {
+  const selectedCell =
+    cells.find((cell) => cell.id === selectedResultCellId) ||
+    cells.find((cell) => typeof cell.score?.overall === 'number') ||
+    cells[0];
+  if (!selectedCell) {
+    setResultDetailPlaceholder();
+    return;
+  }
+  selectedResultCellId = selectedCell.id;
+  const overall = selectedCell.score?.overall;
+  const band = typeof overall === 'number' ? getScoreBand(overall) : 'medium';
+  if (jobResultDetail) {
+    jobResultDetail.className = `job-result__detail job-result__detail--${band}`;
+  }
+  if (jobResultDetailTitle) {
+    jobResultDetailTitle.textContent = `${selectedCell.id} · ${selectedCell.char || '未知字符'}`;
+  }
+  if (jobResultDetailBand) {
+    jobResultDetailBand.textContent =
+      typeof overall === 'number' ? getScoreBandLabel(overall) : '待补数据';
+  }
+  if (jobResultDetailSummary) {
+    const weakest = getWeakestScoreDimension(selectedCell.score);
+    jobResultDetailSummary.textContent = weakest
+      ? `当前最低维度是${weakest[0]}，建议优先修正这一项。`
+      : '当前格子的分项数据不足，可先查看原始评分结果。';
+  }
+  if (jobResultDetailOverall) {
+    jobResultDetailOverall.textContent = `总分：${formatScoreText(selectedCell.score?.overall)}`;
+  }
+  if (jobResultDetailEndpoints) {
+    jobResultDetailEndpoints.textContent = `起止：${formatScoreText(selectedCell.score?.endpoints)}`;
+  }
+  if (jobResultDetailDirection) {
+    jobResultDetailDirection.textContent = `走向：${formatScoreText(selectedCell.score?.direction)}`;
+  }
+  if (jobResultDetailShape) {
+    jobResultDetailShape.textContent = `形态：${formatScoreText(selectedCell.score?.shape)}`;
+  }
+  if (jobResultDetailAdvice) {
+    jobResultDetailAdvice.textContent = getResultAdvice(selectedCell);
+  }
+};
+
 const clearJobResult = () => {
+  currentJobResult = null;
+  selectedResultCellId = '';
   if (jobResultTitle) jobResultTitle.textContent = '尚未选择任务';
   if (jobResultSummary) {
     jobResultSummary.textContent = '切换到上传模式并选择已完成的任务即可查看详情。';
   }
   if (jobResultMetrics) jobResultMetrics.textContent = '';
+  if (jobResultTotalCells) jobResultTotalCells.textContent = '--';
+  if (jobResultLowCount) jobResultLowCount.textContent = '--';
+  if (jobResultVisibleCount) jobResultVisibleCount.textContent = '--';
+  if (jobResultWeakestCell) jobResultWeakestCell.textContent = '--';
+  if (jobResultLowScore) jobResultLowScore.innerHTML = '';
+  if (jobResultFilter) jobResultFilter.value = 'all';
+  if (jobResultDimensionFilter) jobResultDimensionFilter.value = 'all';
+  if (jobResultQuery) jobResultQuery.value = '';
+  setResultDetailPlaceholder();
   if (jobResultCells) {
     jobResultCells.innerHTML =
       '<tr><td colspan="6" class="job-result__placeholder">暂无数据</td></tr>';
   }
+  updateUploadOverview();
 };
 
 const renderJobResult = (result: JobResultPayload | null) => {
+  currentJobResult = result;
   if (!jobResultPanel) return;
   if (!result) {
     clearJobResult();
     return;
   }
+  const filteredCells = getFilteredResultCells(result.cells);
+  const lowScoreCells = result.cells.filter(
+    (cell) => typeof cell.score?.overall === 'number' && cell.score.overall < 0.6,
+  );
+  const activeDimensionFilter = getResultDimensionFilter();
+  const weakestCell = [...result.cells]
+    .filter((cell) => typeof cell.score?.overall === 'number')
+    .sort((a, b) => (a.score!.overall! > b.score!.overall! ? 1 : -1))[0];
   if (jobResultTitle) jobResultTitle.textContent = `任务 ${result.jobId}`;
   if (jobResultSummary) {
-    jobResultSummary.textContent = `共 ${result.cells.length} 个格子，${
+    jobResultSummary.textContent = `共 ${result.cells.length} 个格子，当前展示 ${filteredCells.length} 个，${
       result.metrics?.scoredCount ?? 0
-    } 个已评分。`;
+    } 个已评分。${
+      activeDimensionFilter === 'all' ? '' : ` 当前只看“${getDimensionLabel(activeDimensionFilter)}”最弱的格子。`
+    }`;
+  }
+  if (jobResultTotalCells) jobResultTotalCells.textContent = `${result.cells.length}`;
+  if (jobResultLowCount) jobResultLowCount.textContent = `${lowScoreCells.length}`;
+  if (jobResultVisibleCount) jobResultVisibleCount.textContent = `${filteredCells.length}`;
+  if (jobResultWeakestCell) {
+    jobResultWeakestCell.textContent = weakestCell
+      ? `${weakestCell.id} · ${formatScore(weakestCell.score!.overall!)}`
+      : '--';
   }
   if (jobResultMetrics) {
     const avg =
       typeof result.metrics?.averageScore === 'number'
         ? `${formatScore(result.metrics.averageScore)}`
         : '--';
-    jobResultMetrics.textContent = `综合平均分：${avg}`;
+    const scoredCount = result.metrics?.scoredCount ?? 0;
+    jobResultMetrics.textContent = `综合平均分：${avg} · 已评分：${scoredCount} · 低分重点：${lowScoreCells.length}`;
   }
   if (jobResultLowScore) {
     jobResultLowScore.innerHTML = '';
-    const highlights = result.cells
+    const highlights = [...result.cells]
       .filter((cell) => typeof cell.score?.overall === 'number')
       .sort((a, b) => (a.score!.overall! > b.score!.overall! ? 1 : -1))
       .slice(0, 3);
@@ -835,30 +1258,97 @@ const renderJobResult = (result: JobResultPayload | null) => {
       jobResultLowScore.innerHTML = '<p class="job-result__placeholder">暂无低分提示</p>';
     } else {
       const title = document.createElement('h4');
-      title.textContent = '低分提示';
-      const list = document.createElement('ul');
+      title.textContent = '低分重点提示';
+      const summary = document.createElement('p');
+      summary.className = 'job-result__low-score-summary';
+      summary.textContent = '以下格子建议优先复查，先看总分，再关注最低维度。';
+      const list = document.createElement('div');
+      list.className = 'job-result__low-score-list';
       highlights.forEach((cell) => {
-        const li = document.createElement('li');
-        const label = `${cell.id} (${cell.char || '未知'})`;
-        const scoreText = formatScore(cell.score!.overall!);
-        li.textContent = `${label} · 总分 ${scoreText}`;
-        list.appendChild(li);
+        const item = document.createElement('article');
+        const overall = cell.score!.overall!;
+        const band = getScoreBand(overall);
+        const weakest = getWeakestScoreDimension(cell.score);
+        item.className = `job-result__focus-card job-result__focus-card--${band}`;
+
+        const header = document.createElement('div');
+        header.className = 'job-result__focus-header';
+        header.innerHTML = `
+          <strong>${cell.id} · ${cell.char || '未知'}</strong>
+          <span>${getScoreBandLabel(overall)}</span>
+        `;
+
+        const scoreLine = document.createElement('p');
+        scoreLine.className = 'job-result__focus-score';
+        scoreLine.textContent = `总分 ${formatScoreText(overall)}`;
+
+        const detail = document.createElement('p');
+        detail.className = 'job-result__focus-detail';
+        detail.textContent = weakest
+          ? `最低维度：${weakest[0]} ${formatScoreText(weakest[1])}`
+          : '缺少分项评分数据';
+
+        const chips = document.createElement('div');
+        chips.className = 'job-result__focus-chips';
+        ['endpoints', 'direction', 'shape'].forEach((key) => {
+          const metricLabel =
+            key === 'endpoints' ? '起止' : key === 'direction' ? '走向' : '形态';
+          const value = cell.score?.[key as keyof NonNullable<ResultCell['score']>];
+          const chip = document.createElement('span');
+          chip.className = 'job-result__focus-chip';
+          chip.textContent = `${metricLabel} ${formatScoreText(value as number | null | undefined)}`;
+          chips.appendChild(chip);
+        });
+
+        item.tabIndex = 0;
+        item.addEventListener('click', () => focusResultCell(cell.id));
+        item.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            focusResultCell(cell.id);
+          }
+        });
+        item.append(header, scoreLine, detail, chips);
+        list.appendChild(item);
       });
-      jobResultLowScore.append(title, list);
+      jobResultLowScore.append(title, summary, list);
     }
   }
+  renderSelectedResultCell(filteredCells);
   if (jobResultCells) {
     jobResultCells.innerHTML = '';
-    if (!result.cells.length) {
+    if (!filteredCells.length) {
+      setResultDetailPlaceholder();
       jobResultCells.innerHTML =
-        '<tr><td colspan="6" class="job-result__placeholder">无格子数据</td></tr>';
+        '<tr><td colspan="6" class="job-result__placeholder">当前筛选下无格子数据</td></tr>';
       return;
     }
-    result.cells.slice(0, 50).forEach((cell) => {
+    let selectedRow: HTMLTableRowElement | null = null;
+    filteredCells.slice(0, 50).forEach((cell) => {
       const tr = document.createElement('tr');
+      tr.dataset.cellId = cell.id;
       const score = cell.score || {};
       const toCell = (value?: number | null) =>
         typeof value === 'number' ? formatScore(value) : '--';
+      if (typeof score.overall === 'number') {
+        tr.classList.add(`job-result__row--${getScoreBand(score.overall)}`);
+      }
+      if (selectedResultCellId && selectedResultCellId === cell.id) {
+        tr.classList.add('job-result__row--selected');
+        selectedRow = tr;
+      }
+      tr.tabIndex = 0;
+      tr.addEventListener('click', () => {
+        selectedResultCellId = cell.id;
+        renderJobResult(currentJobResult);
+      });
+      tr.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          selectedResultCellId = cell.id;
+          renderJobResult(currentJobResult);
+        }
+      });
       tr.innerHTML = `
         <td>${cell.id}</td>
         <td>${cell.char || '未知'}</td>
@@ -869,11 +1359,16 @@ const renderJobResult = (result: JobResultPayload | null) => {
       `;
       jobResultCells.appendChild(tr);
     });
-    if (result.cells.length > 50) {
+    if (filteredCells.length > 50) {
       const tr = document.createElement('tr');
       tr.innerHTML =
         '<td colspan="6" class="job-result__placeholder">仅展示前 50 条，详见下载文件。</td>';
       jobResultCells.appendChild(tr);
+    }
+    if (selectedRow) {
+      window.setTimeout(() => {
+        selectedRow?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 40);
     }
   }
 };
@@ -965,8 +1460,51 @@ refreshJobsBtn?.addEventListener('click', () => {
   fetchJobs();
 });
 
+jobStatusFilterSelect?.addEventListener('change', () => {
+  renderJobs(latestJobRecords);
+});
+
 jobResultClose?.addEventListener('click', () => {
   clearJobResult();
 });
 
+jobResultFilter?.addEventListener('change', () => {
+  selectedResultCellId = '';
+  renderJobResult(currentJobResult);
+});
+
+jobResultDimensionFilter?.addEventListener('change', () => {
+  selectedResultCellId = '';
+  renderJobResult(currentJobResult);
+});
+
+jobResultQuery?.addEventListener('input', () => {
+  selectedResultCellId = '';
+  renderJobResult(currentJobResult);
+});
+
+jobResultReset?.addEventListener('click', () => {
+  selectedResultCellId = '';
+  if (jobResultFilter) {
+    jobResultFilter.value = 'all';
+  }
+  if (jobResultDimensionFilter) {
+    jobResultDimensionFilter.value = 'all';
+  }
+  if (jobResultQuery) {
+    jobResultQuery.value = '';
+  }
+  renderJobResult(currentJobResult);
+});
+
 clearJobResult();
+
+const resizeObserver = new ResizeObserver(() => {
+  notifyParentFrame();
+});
+
+resizeObserver.observe(document.body);
+resizeObserver.observe(document.documentElement);
+window.addEventListener('load', notifyParentFrame);
+window.addEventListener('resize', notifyParentFrame);
+window.setTimeout(notifyParentFrame, 0);

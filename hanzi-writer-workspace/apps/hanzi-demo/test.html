@@ -12,6 +12,25 @@
         <h1>汉字测试字帖</h1>
         <p>设置测试所需的汉字序列，每写完一个汉字系统会自动进入下一项，帮助模拟考试节奏。</p>
 
+        <section class="page-overview">
+          <article class="page-overview__card">
+            <span class="page-overview__label">当前测试字</span>
+            <strong id="summary-active-char">我</strong>
+          </article>
+          <article class="page-overview__card">
+            <span class="page-overview__label">剩余字数</span>
+            <strong id="summary-remaining-count">0</strong>
+          </article>
+          <article class="page-overview__card">
+            <span class="page-overview__label">当前总分</span>
+            <strong id="summary-overall-score">--</strong>
+          </article>
+          <article class="page-overview__card">
+            <span class="page-overview__label">整字记录</span>
+            <strong id="summary-history-count">0</strong>
+          </article>
+        </section>
+
         <div class="copybook-panel" data-mode-only="writer">
           <div class="copybook-panel__header">
             <label for="sequence-input">字帖内容（可批量输入多个汉字）</label>
@@ -64,6 +83,15 @@
         <p id="session-status" class="session-status session-status--inline">
           当前为测试模式，完成整字后系统自动跳转下一格。
         </p>
+        <section id="character-result" class="character-result character-result--pending">
+          <div>
+            <span class="character-result__label" id="character-result-label">整字结果</span>
+            <strong id="character-result-score">等待完成</strong>
+          </div>
+          <p id="character-result-note" class="character-result__note">
+            完成一个汉字后，这里会给出整字评价与建议。
+          </p>
+        </section>
         <div class="writer-canvas-area" data-mode-only="writer">
           <div id="writer"></div>
           <div class="writer-actions">

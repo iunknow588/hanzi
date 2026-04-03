@@ -18,6 +18,19 @@ log_section() {
   echo -e "${CYAN}══════════════════════════════${NC}\n"
 }
 
+load_node_env() {
+  local nvm_dir="${NVM_DIR:-$HOME/.nvm}"
+  local nvm_script="$nvm_dir/nvm.sh"
+  local nvmrc_file="$PROJECT_ROOT/hanzi-writer-workspace/.nvmrc"
+  if [ -s "$nvm_script" ]; then
+    # shellcheck disable=SC1090
+    . "$nvm_script"
+    if [ -f "$nvmrc_file" ]; then
+      nvm use "$(cat "$nvmrc_file")" >/dev/null
+    fi
+  fi
+}
+
 show_help() {
   cat <<'USAGE'
 Hanzi Workspace 一键部署脚本
@@ -73,6 +86,7 @@ if [ "$HANZI_RUN_VERCEL" = "true" ]; then
   log_section "步骤 2: 构建 Demo 并部署至 Vercel"
   if [ -d "$PROJECT_ROOT/hanzi-writer-workspace" ]; then
     (
+      load_node_env
       cd "$PROJECT_ROOT/hanzi-writer-workspace" && \
       yarn install >/dev/null && \
       yarn demo:build >/dev/null

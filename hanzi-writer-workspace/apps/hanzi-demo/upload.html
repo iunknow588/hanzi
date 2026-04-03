@@ -16,6 +16,25 @@
         </p>
       </header>
 
+      <section class="page-overview page-overview--upload">
+        <article class="page-overview__card">
+          <span class="page-overview__label">接口状态</span>
+          <strong id="upload-summary-api">待检查</strong>
+        </article>
+        <article class="page-overview__card">
+          <span class="page-overview__label">任务数量</span>
+          <strong id="upload-summary-job-count">0</strong>
+        </article>
+        <article class="page-overview__card">
+          <span class="page-overview__label">最近状态</span>
+          <strong id="upload-summary-last-status">等待上传</strong>
+        </article>
+        <article class="page-overview__card">
+          <span class="page-overview__label">最近平均分</span>
+          <strong id="upload-summary-average">--</strong>
+        </article>
+      </section>
+
       <section class="upload-panel upload-panel--standalone">
         <form id="upload-form">
           <label for="page-file">稿纸文件（jpg/png/pdf）</label>
@@ -54,6 +73,17 @@
           <h2>任务列表</h2>
           <button type="button" id="refresh-jobs" class="btn-secondary btn-small">刷新</button>
         </div>
+        <div class="job-list__filters">
+          <label for="job-status-filter">状态筛选</label>
+          <select id="job-status-filter">
+            <option value="all">全部任务</option>
+            <option value="queued">queued</option>
+            <option value="running">running</option>
+            <option value="succeeded">succeeded</option>
+            <option value="failed">failed</option>
+          </select>
+          <span class="job-list__hint">最近成功任务会自动高亮，方便快速查看。</span>
+        </div>
         <p id="job-status-message" class="job-status-message">尚未进入上传模式。</p>
         <ul id="job-list-entries" class="job-list__items"></ul>
       </section>
@@ -69,7 +99,71 @@
           <button type="button" id="job-result-close" class="btn-secondary btn-small">清空</button>
         </div>
         <p id="job-result-metrics" class="job-result__metrics"></p>
+        <section class="job-result__overview">
+          <article class="job-result__overview-card">
+            <span>总格子数</span>
+            <strong id="job-result-total-cells">--</strong>
+          </article>
+          <article class="job-result__overview-card">
+            <span>低分重点</span>
+            <strong id="job-result-low-count">--</strong>
+          </article>
+          <article class="job-result__overview-card">
+            <span>当前显示</span>
+            <strong id="job-result-visible-count">--</strong>
+          </article>
+          <article class="job-result__overview-card">
+            <span>最弱格子</span>
+            <strong id="job-result-weakest-cell">--</strong>
+          </article>
+        </section>
         <div id="job-result-low-score" class="job-result__low-score"></div>
+        <div class="job-result__toolbar">
+          <div class="job-result__toolbar-field">
+            <label for="job-result-filter">结果筛选</label>
+            <select id="job-result-filter">
+              <option value="all">全部格子</option>
+              <option value="low">低分重点</option>
+              <option value="medium">中等分数</option>
+              <option value="good">高分格子</option>
+            </select>
+          </div>
+          <div class="job-result__toolbar-field">
+            <label for="job-result-dimension-filter">薄弱维度</label>
+            <select id="job-result-dimension-filter">
+              <option value="all">全部维度</option>
+              <option value="endpoints">起止偏差</option>
+              <option value="direction">走向偏差</option>
+              <option value="shape">形态偏差</option>
+            </select>
+          </div>
+          <div class="job-result__toolbar-field">
+            <label for="job-result-query">定位格子/字符</label>
+            <input id="job-result-query" type="text" placeholder="例如 A01 或 永" />
+          </div>
+          <button type="button" id="job-result-reset" class="btn-secondary">重置筛选</button>
+        </div>
+        <section id="job-result-detail" class="job-result__detail">
+          <div class="job-result__detail-header">
+            <div>
+              <span class="job-result__detail-label">当前聚焦格子</span>
+              <strong id="job-result-detail-title">等待选择格子</strong>
+            </div>
+            <span id="job-result-detail-band" class="job-result__detail-band">--</span>
+          </div>
+          <p id="job-result-detail-summary" class="job-result__detail-summary">
+            点击低分重点卡片或下方表格行后，这里会显示该格子的详细解释。
+          </p>
+          <div class="job-result__detail-metrics">
+            <span id="job-result-detail-overall">总分：--</span>
+            <span id="job-result-detail-endpoints">起止：--</span>
+            <span id="job-result-detail-direction">走向：--</span>
+            <span id="job-result-detail-shape">形态：--</span>
+          </div>
+          <div id="job-result-detail-advice" class="job-result__detail-advice">
+            等待详情数据。
+          </div>
+        </section>
         <div class="job-result__cells">
           <table>
             <thead>

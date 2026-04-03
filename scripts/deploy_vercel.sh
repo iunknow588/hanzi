@@ -13,6 +13,19 @@ log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
+load_node_env() {
+  local nvm_dir="${NVM_DIR:-$HOME/.nvm}"
+  local nvm_script="$nvm_dir/nvm.sh"
+  local nvmrc_file="$PROJECT_ROOT/hanzi-writer-workspace/.nvmrc"
+  if [ -s "$nvm_script" ]; then
+    # shellcheck disable=SC1090
+    . "$nvm_script"
+    if [ -f "$nvmrc_file" ]; then
+      nvm use "$(cat "$nvmrc_file")" >/dev/null
+    fi
+  fi
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ENV_FILE="$PROJECT_ROOT/.env.vercel"
@@ -39,6 +52,8 @@ if [ ! -d "$SOURCE_PATH" ]; then
   log_error "部署目录不存在: $SOURCE_PATH"
   exit 1
 fi
+
+load_node_env
 
 if ! command -v vercel >/dev/null 2>&1; then
   log_error "未检测到 vercel CLI，请先执行: npm i -g vercel"
@@ -96,6 +111,15 @@ if [ ! -d "$BUILD_PATH" ]; then
   log_error "部署目录缺少构建输出: $HANZI_VERCEL_BUILD_DIR"
   exit 1
 fi
+
+for required_file in index.html practice.html test.html upload.html; do
+  if [ ! -f "$BUILD_PATH/$required_file" ]; then
+    log_error "部署目录缺少必要页面文件: $HANZI_VERCEL_BUILD_DIR/$required_file"
+    exit 1
+  fi
+done
+
+log_info "已验证多页面构建产物完整"
 
 TMP_VERCEL_DIR="$BUILD_PATH/.vercel"
 rm -rf "$TMP_VERCEL_DIR"
