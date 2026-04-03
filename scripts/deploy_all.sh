@@ -52,6 +52,16 @@ run_yarn() {
   npx --yes yarn@1.22.22 "$@"
 }
 
+run_npm() {
+  if command -v npm >/dev/null 2>&1; then
+    npm "$@"
+    return
+  fi
+
+  log_error "未检测到 npm，请先确认 Node.js 环境已正确加载"
+  exit 1
+}
+
 show_help() {
   cat <<'USAGE'
 Hanzi Workspace 一键部署脚本
@@ -108,9 +118,16 @@ if [ "$HANZI_RUN_VERCEL" = "true" ]; then
   if [ -d "$PROJECT_ROOT/hanzi-writer-workspace" ]; then
     (
       load_node_env
+      log_info "步骤 2.1: 安装 workspace 依赖"
       cd "$PROJECT_ROOT/hanzi-writer-workspace" && \
-      run_yarn install >/dev/null && \
-      run_yarn demo:build >/dev/null
+      run_yarn install >/dev/null
+
+      log_info "步骤 2.2: 生成 demo 预处理数据"
+      run_yarn demo:prepare >/dev/null
+
+      log_info "步骤 2.3: 执行 hanzi-demo npm run build"
+      cd "$PROJECT_ROOT/hanzi-writer-workspace/apps/hanzi-demo" && \
+      run_npm run build >/dev/null
     )
   else
     log_warn "未找到 hanzi-writer-workspace，跳过 demo:build"
