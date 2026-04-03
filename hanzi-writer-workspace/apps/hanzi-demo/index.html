@@ -10,33 +10,23 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>汉字书写评分 · 模式切换</title>
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/app-icon.svg" />
     <link rel="manifest" href="/manifest.webmanifest" />
   </head>
   <body>
     <div class="mode-layout">
       <header class="mode-layout__header">
-        <div class="mode-layout__toolbar">
-          <div class="mode-layout__brand">
-            <span class="mode-layout__eyebrow">汉字书写评分</span>
-            <h1>选择模式</h1>
-            <p>练习模式用于实时书写评分，测试模式用于逐字测评，上传模式用于整页稿纸提交与结果查看。</p>
-          </div>
-          <nav class="mode-layout__tabs" aria-label="模式切换">
-            <button type="button" class="mode-switch is-active" data-target-page="practice">
-              <span class="mode-switch__title">练习模式</span>
-              <span class="mode-switch__desc">实时评分</span>
-            </button>
-            <button type="button" class="mode-switch" data-target-page="test">
-              <span class="mode-switch__title">测试模式</span>
-              <span class="mode-switch__desc">逐字测评</span>
-            </button>
-            <button type="button" class="mode-switch" data-target-page="upload">
-              <span class="mode-switch__title">上传模式</span>
-              <span class="mode-switch__desc">整页上传</span>
-            </button>
-          </nav>
-        </div>
+        <nav class="mode-layout__tabs" aria-label="模式切换">
+          <button type="button" class="mode-switch is-active" data-target-page="practice">
+            <span class="mode-switch__title">练习模式</span>
+          </button>
+          <button type="button" class="mode-switch" data-target-page="test">
+            <span class="mode-switch__title">测试模式</span>
+          </button>
+          <button type="button" class="mode-switch" data-target-page="upload">
+            <span class="mode-switch__title">上传模式</span>
+          </button>
+        </nav>
       </header>
       <main class="mode-layout__content">
         <section class="mode-embed" aria-label="模式内容">

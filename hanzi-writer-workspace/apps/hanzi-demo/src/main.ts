@@ -34,6 +34,7 @@ type PersistedPageState = {
 const pageRole = (document.body?.dataset.pageRole as PageRole | undefined) ?? 'writer';
 const initialSessionMode =
   (document.body?.dataset.defaultMode as SessionMode | undefined) ?? 'practice';
+let sessionMode: SessionMode = initialSessionMode;
 const PAGE_STORAGE_KEY = `hanzi-demo-page-state:${initialSessionMode}`;
 const UI_STORAGE_KEY = `hanzi-demo-ui:${initialSessionMode}`;
 
@@ -898,7 +899,6 @@ const advanceSequenceChar = () => {
 };
 
 let currentWriter: HanziWriter | null = null;
-let sessionMode: SessionMode = 'practice';
 let practiceHintPreference = hintToggleInput?.checked ?? true;
 let hintsEnabled = practiceHintPreference;
 

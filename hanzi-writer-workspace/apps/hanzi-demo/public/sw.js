@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hanzi-demo-v1';
+const CACHE_NAME = 'hanzi-demo-v2';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -6,7 +6,7 @@ const APP_SHELL = [
   '/test.html',
   '/upload.html',
   '/manifest.webmanifest',
-  '/vite.svg',
+  '/app-icon.svg',
 ];
 
 self.addEventListener('install', (event) => {
