@@ -20,6 +20,10 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+body[data-embedded='true'] {
+  min-height: auto;
+}
+
 h1,
 h2,
 h3 {

@@ -35,6 +35,10 @@ const pageRole = (document.body?.dataset.pageRole as PageRole | undefined) ?? 'w
 const initialSessionMode =
   (document.body?.dataset.defaultMode as SessionMode | undefined) ?? 'practice';
 let sessionMode: SessionMode = initialSessionMode;
+const isEmbeddedFrame = window.parent !== window;
+if (isEmbeddedFrame) {
+  document.body.dataset.embedded = 'true';
+}
 const PAGE_STORAGE_KEY = `hanzi-demo-page-state:${initialSessionMode}`;
 const UI_STORAGE_KEY = `hanzi-demo-ui:${initialSessionMode}`;
 
@@ -82,19 +86,27 @@ const saveUiState = (partial: { controlsCollapsed?: boolean }) => {
   }
 };
 
+const getFrameContentRoot = () =>
+  (document.getElementById('app') as HTMLElement | null) ||
+  (document.querySelector('.mode-page') as HTMLElement | null) ||
+  document.body;
+
+const getFrameContentHeight = () => {
+  const root = getFrameContentRoot();
+  const bodyStyle = window.getComputedStyle(document.body);
+  const paddingTop = Number.parseFloat(bodyStyle.paddingTop || '0') || 0;
+  const paddingBottom = Number.parseFloat(bodyStyle.paddingBottom || '0') || 0;
+  return Math.ceil(root.getBoundingClientRect().height + paddingTop + paddingBottom);
+};
+
 const notifyParentFrame = () => {
-  if (window.parent === window) return;
+  if (!isEmbeddedFrame) return;
   const payload: ParentFrameMessage = {
     type: 'hanzi-frame-state',
     mode: sessionMode,
     pageRole,
     title: document.title,
-    height: Math.max(
-      document.body.scrollHeight,
-      document.body.offsetHeight,
-      document.documentElement.scrollHeight,
-      document.documentElement.offsetHeight,
-    ),
+    height: getFrameContentHeight(),
   };
   window.parent.postMessage(payload, window.location.origin);
 };
@@ -2105,13 +2117,24 @@ if (initialSessionMode !== 'practice' || pageRole === 'upload') {
 clearJobResult(true);
 renderPageFilePreview(pageFileInput?.files?.[0] || null);
 
+let notifyFrameHandle = 0;
+const scheduleNotifyParentFrame = () => {
+  if (!isEmbeddedFrame) return;
+  if (notifyFrameHandle) {
+    window.cancelAnimationFrame(notifyFrameHandle);
+  }
+  notifyFrameHandle = window.requestAnimationFrame(() => {
+    notifyFrameHandle = 0;
+    notifyParentFrame();
+  });
+};
+
 const resizeObserver = new ResizeObserver(() => {
-  notifyParentFrame();
+  scheduleNotifyParentFrame();
 });
 
-resizeObserver.observe(document.body);
-resizeObserver.observe(document.documentElement);
-window.addEventListener('load', notifyParentFrame);
-window.addEventListener('resize', notifyParentFrame);
-window.setTimeout(notifyParentFrame, 0);
+resizeObserver.observe(getFrameContentRoot());
+window.addEventListener('load', scheduleNotifyParentFrame);
+window.addEventListener('resize', scheduleNotifyParentFrame);
+window.setTimeout(scheduleNotifyParentFrame, 0);
 window.addEventListener('beforeunload', revokePageFilePreviewUrl);

@@ -119,6 +119,10 @@ a {
   pointer-events: none;
 }
 
+.mode-embed__loading[hidden] {
+  display: none;
+}
+
 .mode-embed__spinner {
   width: 18px;
   height: 18px;
