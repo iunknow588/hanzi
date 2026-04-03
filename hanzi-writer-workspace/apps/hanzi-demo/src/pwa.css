@@ -1,0 +1,108 @@
+.pwa-status {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 50%;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  color: #f8fafc;
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.18);
+  transform: translate(-50%, -12px);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.pwa-status.is-visible {
+  transform: translate(-50%, 0);
+  opacity: 1;
+}
+
+.pwa-status--offline {
+  background: rgba(180, 83, 9, 0.94);
+}
+
+.pwa-install {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  z-index: 55;
+  width: min(360px, calc(100vw - 32px));
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(15, 23, 42, 0.96);
+  color: #f8fafc;
+  box-shadow: 0 24px 50px rgba(15, 23, 42, 0.28);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.pwa-install[hidden] {
+  display: none;
+}
+
+.pwa-install__title {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.pwa-install__desc {
+  margin: 0;
+  color: rgba(248, 250, 252, 0.78);
+  line-height: 1.55;
+  font-size: 0.9rem;
+}
+
+.pwa-install__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.pwa-install__actions button {
+  min-height: 42px;
+  border-radius: 999px;
+  padding: 0 16px;
+  font-weight: 800;
+}
+
+.pwa-install__actions .pwa-install__primary {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.pwa-install__actions .pwa-install__secondary {
+  background: rgba(248, 250, 252, 0.12);
+  color: #f8fafc;
+}
+
+@media (max-width: 600px) {
+  .pwa-status {
+    left: 12px;
+    right: 12px;
+    transform: translateY(-12px);
+    width: auto;
+  }
+
+  .pwa-status.is-visible {
+    transform: translateY(0);
+  }
+
+  .pwa-install {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+
+  .pwa-install__actions {
+    flex-direction: column;
+  }
+}

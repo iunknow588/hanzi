@@ -2,70 +2,92 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="application-name" content="汉字书写评分" />
+    <meta name="apple-mobile-web-app-title" content="汉字书写评分" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>汉字书写评分 · 模式切换</title>
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
   </head>
   <body>
     <div class="mode-layout">
       <header class="mode-layout__header">
-        <div class="mode-layout__hero">
-          <div>
-            <span class="mode-layout__eyebrow">模式总控栏</span>
-            <h1>汉字书写评分</h1>
-            <p>上栏只负责模式选择，下栏只显示当前模式对应的独立页面，从结构上隔离三种模式内容。</p>
+        <div class="mode-layout__toolbar">
+          <div class="mode-layout__brand">
+            <span class="mode-layout__eyebrow">汉字书写评分</span>
+            <h1>模式切换</h1>
+            <p>选择模式后，下方仅加载对应的独立页面内容。</p>
           </div>
-          <div class="mode-layout__notice">
-            <strong>页面结构</strong>
-            <span>第 1 栏：模式选择</span>
-            <span>第 2 栏：模式页面内容</span>
-          </div>
-        </div>
-        <nav class="mode-layout__tabs">
-          <button type="button" class="mode-switch is-active" data-target-page="practice">
-            <span class="mode-switch__title">练习模式</span>
-            <span class="mode-switch__desc">实时评分、可提示、适合日常练字。</span>
-          </button>
-          <button type="button" class="mode-switch" data-target-page="test">
-            <span class="mode-switch__title">测试模式</span>
-            <span class="mode-switch__desc">逐字完成后自动切换，适合测评流程。</span>
-          </button>
-          <button type="button" class="mode-switch" data-target-page="upload">
-            <span class="mode-switch__title">上传模式</span>
-            <span class="mode-switch__desc">整页稿纸上传、统一查看任务与结果。</span>
-          </button>
-        </nav>
-        <div class="mode-layout__summary">
-          <article class="mode-layout__summary-card">
-            <span class="mode-layout__summary-label">当前模式</span>
-            <strong id="mode-current-label">练习模式</strong>
-            <span id="mode-current-desc">适合日常临摹、纠错与实时评分。</span>
-          </article>
-          <article class="mode-layout__summary-card">
-            <span class="mode-layout__summary-label">独立页面</span>
-            <strong id="mode-current-page">practice.html</strong>
-            <span id="mode-current-role">当前载入的是独立练习页面</span>
-          </article>
-          <article class="mode-layout__summary-card">
-            <span class="mode-layout__summary-label">页面状态</span>
-            <strong id="mode-current-meta">正在加载练习页</strong>
-            <span>下方 iframe 只展示当前选中模式。</span>
-          </article>
+          <nav class="mode-layout__tabs" aria-label="模式切换">
+            <button type="button" class="mode-switch is-active" data-target-page="practice">
+              <span class="mode-switch__title">练习模式</span>
+              <span class="mode-switch__desc">实时评分</span>
+            </button>
+            <button type="button" class="mode-switch" data-target-page="test">
+              <span class="mode-switch__title">测试模式</span>
+              <span class="mode-switch__desc">逐字测评</span>
+            </button>
+            <button type="button" class="mode-switch" data-target-page="upload">
+              <span class="mode-switch__title">上传模式</span>
+              <span class="mode-switch__desc">整页上传</span>
+            </button>
+          </nav>
         </div>
       </header>
-      <section class="mode-layout__content">
-        <div id="mode-loading" class="mode-layout__loading" hidden>
-          <span class="mode-layout__spinner" aria-hidden="true"></span>
-          <span>正在切换页面内容…</span>
-        </div>
-        <iframe
-          id="mode-frame"
-          title="Hanzi Writer Mode"
-          src="./practice.html"
-          loading="lazy"
-          allow="clipboard-write"
-        ></iframe>
-      </section>
+      <main class="mode-layout__content">
+        <section class="mode-stage" aria-labelledby="mode-current-title">
+          <div class="mode-stage__panel">
+            <span class="mode-stage__eyebrow">H5 模式入口</span>
+            <h2 id="mode-current-title">练习模式</h2>
+            <p id="mode-current-desc">
+              适合日常临摹、纠错与实时评分，打开后即可直接进入完整 H5 书写页面。
+            </p>
+            <div class="mode-stage__actions">
+              <a id="mode-primary-link" class="mode-stage__primary" href="./practice.html">进入当前模式</a>
+              <a id="mode-secondary-link" class="mode-stage__secondary" href="./practice.html">H5 全屏打开</a>
+            </div>
+          </div>
+          <dl class="mode-stage__meta">
+            <div class="mode-stage__meta-item">
+              <dt>页面形态</dt>
+              <dd>独立 H5 页面</dd>
+            </div>
+            <div class="mode-stage__meta-item">
+              <dt>当前文件</dt>
+              <dd id="mode-current-page">practice.html</dd>
+            </div>
+            <div class="mode-stage__meta-item">
+              <dt>移动端方向</dt>
+              <dd id="mode-current-mobile">适合触屏练习与实时反馈</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="mode-grid" aria-label="模式说明">
+          <article class="mode-card is-active" data-mode-card="practice">
+            <span class="mode-card__tag">Practice</span>
+            <h3>练习模式</h3>
+            <p>实时评分、即时提示，适合移动端日常练字与连续练习。</p>
+            <a data-mode-link="practice" href="./practice.html">打开 H5 页面</a>
+          </article>
+          <article class="mode-card" data-mode-card="test">
+            <span class="mode-card__tag">Test</span>
+            <h3>测试模式</h3>
+            <p>逐字完成自动切换，更适合考试节奏和正式测评流程。</p>
+            <a data-mode-link="test" href="./test.html">打开 H5 页面</a>
+          </article>
+          <article class="mode-card" data-mode-card="upload">
+            <span class="mode-card__tag">Upload</span>
+            <h3>上传模式</h3>
+            <p>整页稿纸上传、任务追踪、评分结果查看，适合移动端提交作业。</p>
+            <a data-mode-link="upload" href="./upload.html">打开 H5 页面</a>
+          </article>
+        </section>
+      </main>
     </div>
 
     <script type="module" src="/src/shell.ts"></script>

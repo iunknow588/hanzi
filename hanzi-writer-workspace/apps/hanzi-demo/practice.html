@@ -2,15 +2,34 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="application-name" content="汉字书写评分" />
+    <meta name="apple-mobile-web-app-title" content="汉字书写评分" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>汉字书写评分 · 练习模式</title>
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
   </head>
   <body data-default-mode="practice" data-page-role="writer">
+    <header class="page-shell">
+      <a class="page-shell__home" href="./index.html?mode=practice">模式首页</a>
+      <nav class="page-shell__tabs" aria-label="页面模式导航">
+        <a class="page-shell__tab is-active" href="./practice.html?mode=practice">练习模式</a>
+        <a class="page-shell__tab" href="./test.html?mode=test">测试模式</a>
+        <a class="page-shell__tab" href="./upload.html?mode=upload">上传模式</a>
+      </nav>
+      <button type="button" id="mobile-controls-toggle" class="page-shell__toggle">收起设置</button>
+    </header>
     <div id="app">
       <section class="controls">
-        <h1>汉字笔顺练习 &amp; 评分</h1>
-        <p>在此页面配置练习字帖与本地缓存字库，右侧画布专注于书法练习与实时笔画评分。</p>
+        <header class="page-heading">
+          <span class="page-heading__eyebrow">练习模式</span>
+          <h1>汉字练习与实时评分</h1>
+          <p>配置字帖后开始书写，下方内容只保留当前练习模式所需功能。</p>
+        </header>
 
         <section class="page-overview">
           <article class="page-overview__card">
@@ -29,6 +48,26 @@
             <span class="page-overview__label">整字记录</span>
             <strong id="summary-history-count">0</strong>
           </article>
+        </section>
+
+        <section class="writer-progress">
+          <div class="writer-progress__header">
+            <span>字帖定位</span>
+            <strong id="sequence-progress-label">0 / 0</strong>
+          </div>
+          <div class="writer-progress__track" aria-hidden="true">
+            <span id="sequence-progress-fill" class="writer-progress__fill"></span>
+          </div>
+          <div class="writer-progress__stats">
+            <article class="writer-progress__stat">
+              <span>当前进度</span>
+              <strong id="summary-progress-percent">0%</strong>
+            </article>
+            <article class="writer-progress__stat">
+              <span>最近成绩</span>
+              <strong id="summary-recent-score">--</strong>
+            </article>
+          </div>
         </section>
 
         <div class="copybook-panel" data-mode-only="writer">
@@ -83,6 +122,24 @@
         <p id="session-status" class="session-status session-status--inline">
           当前为练习模式，可随时落笔体验实时评分。
         </p>
+        <section class="session-insight">
+          <div class="session-insight__stats">
+            <article class="session-insight__card">
+              <span>已完成</span>
+              <strong id="summary-completed-count">0</strong>
+            </article>
+            <article class="session-insight__card">
+              <span>近 5 字均分</span>
+              <strong id="summary-recent-average">--</strong>
+            </article>
+            <article class="session-insight__card">
+              <span>最佳成绩</span>
+              <strong id="summary-best-score">--</strong>
+            </article>
+          </div>
+          <p id="sequence-achievement" class="session-insight__achievement" hidden></p>
+          <p id="sequence-complete-banner" class="session-insight__banner" hidden></p>
+        </section>
         <section id="character-result" class="character-result character-result--pending">
           <div>
             <span class="character-result__label" id="character-result-label">整字结果</span>
@@ -115,6 +172,17 @@
         <p id="loader-status" class="status-text">正在初始化…</p>
       </section>
     </div>
+    <nav class="page-dock" aria-label="底部模式导航">
+      <a class="page-dock__item is-active" href="./practice.html?mode=practice">
+        <span class="page-dock__label">练习</span>
+      </a>
+      <a class="page-dock__item" href="./test.html?mode=test">
+        <span class="page-dock__label">测试</span>
+      </a>
+      <a class="page-dock__item" href="./upload.html?mode=upload">
+        <span class="page-dock__label">上传</span>
+      </a>
+    </nav>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

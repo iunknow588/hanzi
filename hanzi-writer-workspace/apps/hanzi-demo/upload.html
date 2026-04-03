@@ -2,18 +2,31 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="application-name" content="汉字书写评分" />
+    <meta name="apple-mobile-web-app-title" content="汉字书写评分" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>汉字书写评分 · 稿纸上传</title>
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
   </head>
   <body data-default-mode="upload" data-page-role="upload">
+    <header class="page-shell">
+      <a class="page-shell__home" href="./index.html?mode=upload">模式首页</a>
+      <nav class="page-shell__tabs" aria-label="页面模式导航">
+        <a class="page-shell__tab" href="./practice.html?mode=practice">练习模式</a>
+        <a class="page-shell__tab" href="./test.html?mode=test">测试模式</a>
+        <a class="page-shell__tab is-active" href="./upload.html?mode=upload">上传模式</a>
+      </nav>
+    </header>
     <div class="mode-page mode-page--upload">
-      <header class="mode-page__header">
+      <header class="page-heading page-heading--upload">
+        <span class="page-heading__eyebrow">上传模式</span>
         <h1>整页稿纸上传评分</h1>
-        <p>
-          使用 Hanzi ⇄ Coze Bridge 上传整张书法稿纸，自动完成切分、评分与结果回传。
-          选择工件类型与执行模式后即可排队，任务完成后可直接在线查看评分详情。
-        </p>
+        <p>上传稿纸、排队执行并统一查看任务状态与评分结果。</p>
       </header>
 
       <section class="page-overview page-overview--upload">
@@ -38,7 +51,21 @@
       <section class="upload-panel upload-panel--standalone">
         <form id="upload-form">
           <label for="page-file">稿纸文件（jpg/png/pdf）</label>
-          <input id="page-file" type="file" accept=".png,.jpg,.jpeg,.pdf" />
+          <input
+            id="page-file"
+            type="file"
+            accept=".png,.jpg,.jpeg,.pdf,image/*"
+            capture="environment"
+          />
+          <div id="page-file-preview" class="upload-file-preview upload-file-preview--empty">
+            <div class="upload-file-preview__media" hidden>
+              <img id="page-file-preview-image" alt="稿纸预览" />
+            </div>
+            <div class="upload-file-preview__body">
+              <strong id="page-file-preview-name">尚未选择稿纸</strong>
+              <span id="page-file-preview-meta">支持拍照、相册选择或 PDF 上传。</span>
+            </div>
+          </div>
 
           <div class="upload-panel__options">
             <div>
@@ -84,6 +111,7 @@
           </select>
           <span class="job-list__hint">最近成功任务会自动高亮，方便快速查看。</span>
         </div>
+        <div id="job-status-summary" class="job-status-summary"></div>
         <p id="job-status-message" class="job-status-message">尚未进入上传模式。</p>
         <ul id="job-list-entries" class="job-list__items"></ul>
       </section>
@@ -96,7 +124,11 @@
               选择已完成的任务即可查看评分详情与低分提示。
             </p>
           </div>
-          <button type="button" id="job-result-close" class="btn-secondary btn-small">清空</button>
+          <div class="job-result__header-actions">
+            <button type="button" id="job-result-copy" class="btn-secondary btn-small">复制清单</button>
+            <button type="button" id="job-result-export" class="btn-secondary btn-small">导出清单</button>
+            <button type="button" id="job-result-close" class="btn-secondary btn-small">清空</button>
+          </div>
         </div>
         <p id="job-result-metrics" class="job-result__metrics"></p>
         <section class="job-result__overview">
@@ -163,7 +195,9 @@
           <div id="job-result-detail-advice" class="job-result__detail-advice">
             等待详情数据。
           </div>
+          <div id="job-result-detail-actions" class="job-result__detail-actions"></div>
         </section>
+        <div id="job-result-cards" class="job-result__cards" hidden></div>
         <div class="job-result__cells">
           <table>
             <thead>
@@ -185,6 +219,17 @@
         </div>
       </article>
     </div>
+    <nav class="page-dock" aria-label="底部模式导航">
+      <a class="page-dock__item" href="./practice.html?mode=practice">
+        <span class="page-dock__label">练习</span>
+      </a>
+      <a class="page-dock__item" href="./test.html?mode=test">
+        <span class="page-dock__label">测试</span>
+      </a>
+      <a class="page-dock__item is-active" href="./upload.html?mode=upload">
+        <span class="page-dock__label">上传</span>
+      </a>
+    </nav>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

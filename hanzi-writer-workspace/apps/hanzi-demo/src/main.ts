@@ -3,6 +3,7 @@ import type { StrokeData } from 'hanzi-writer';
 import { createCharDataLoader } from 'hanzi-writer-data-client';
 import localDataMap from './local-data.json';
 import './style.css';
+import { initPwa } from './pwa';
 
 type SessionMode = 'practice' | 'test' | 'upload';
 type PageRole = 'writer' | 'upload';
@@ -14,9 +15,71 @@ type ParentFrameMessage = {
   height: number;
 };
 
+initPwa({ page: 'mode' });
+
+type PersistedPageState = {
+  sequenceInputValue?: string;
+  sequenceIndex?: number;
+  activeCharacter?: string;
+  hintPreference?: boolean;
+  artifactLevel?: string;
+  scoreArtifactLevel?: string;
+  executionMode?: string;
+  jobStatusFilter?: 'all' | 'queued' | 'running' | 'succeeded' | 'failed';
+  resultFilter?: 'all' | 'low' | 'medium' | 'good';
+  resultDimensionFilter?: 'all' | 'endpoints' | 'direction' | 'shape';
+  resultQuery?: string;
+};
+
 const pageRole = (document.body?.dataset.pageRole as PageRole | undefined) ?? 'writer';
 const initialSessionMode =
   (document.body?.dataset.defaultMode as SessionMode | undefined) ?? 'practice';
+const PAGE_STORAGE_KEY = `hanzi-demo-page-state:${initialSessionMode}`;
+const UI_STORAGE_KEY = `hanzi-demo-ui:${initialSessionMode}`;
+
+const loadPersistedPageState = (): PersistedPageState => {
+  try {
+    const raw = window.localStorage.getItem(PAGE_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as PersistedPageState | null;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (error) {
+    console.warn('读取页面缓存失败', error);
+    return {};
+  }
+};
+
+let persistedPageState: PersistedPageState = loadPersistedPageState();
+
+const savePersistedPageState = (partial: PersistedPageState) => {
+  try {
+    persistedPageState = { ...persistedPageState, ...partial };
+    window.localStorage.setItem(PAGE_STORAGE_KEY, JSON.stringify(persistedPageState));
+  } catch (error) {
+    console.warn('写入页面缓存失败', error);
+  }
+};
+
+const loadUiState = () => {
+  try {
+    const raw = window.localStorage.getItem(UI_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as { controlsCollapsed?: boolean } | null;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (error) {
+    console.warn('读取界面缓存失败', error);
+    return {};
+  }
+};
+
+const saveUiState = (partial: { controlsCollapsed?: boolean }) => {
+  try {
+    const next = { ...loadUiState(), ...partial };
+    window.localStorage.setItem(UI_STORAGE_KEY, JSON.stringify(next));
+  } catch (error) {
+    console.warn('写入界面缓存失败', error);
+  }
+};
 
 const notifyParentFrame = () => {
   if (window.parent === window) return;
@@ -61,6 +124,15 @@ const summaryActiveCharElm = document.getElementById('summary-active-char');
 const summaryRemainingCountElm = document.getElementById('summary-remaining-count');
 const summaryOverallScoreElm = document.getElementById('summary-overall-score');
 const summaryHistoryCountElm = document.getElementById('summary-history-count');
+const summaryProgressPercentElm = document.getElementById('summary-progress-percent');
+const summaryRecentScoreElm = document.getElementById('summary-recent-score');
+const summaryCompletedCountElm = document.getElementById('summary-completed-count');
+const summaryRecentAverageElm = document.getElementById('summary-recent-average');
+const summaryBestScoreElm = document.getElementById('summary-best-score');
+const sequenceProgressLabelElm = document.getElementById('sequence-progress-label');
+const sequenceProgressFillElm = document.getElementById('sequence-progress-fill');
+const sequenceAchievementElm = document.getElementById('sequence-achievement');
+const sequenceCompleteBannerElm = document.getElementById('sequence-complete-banner');
 const uploadSummaryApiElm = document.getElementById('upload-summary-api');
 const uploadSummaryJobCountElm = document.getElementById('upload-summary-job-count');
 const uploadSummaryLastStatusElm = document.getElementById('upload-summary-last-status');
@@ -79,6 +151,17 @@ const characterResultElm = document.getElementById('character-result');
 const characterResultLabelElm = document.getElementById('character-result-label');
 const characterResultScoreElm = document.getElementById('character-result-score');
 const characterResultNoteElm = document.getElementById('character-result-note');
+const mobileControlsToggleBtn = document.getElementById(
+  'mobile-controls-toggle',
+) as HTMLButtonElement | null;
+
+if (sequenceInput && typeof persistedPageState.sequenceInputValue === 'string') {
+  sequenceInput.value = persistedPageState.sequenceInputValue;
+}
+
+if (hintToggleInput && typeof persistedPageState.hintPreference === 'boolean') {
+  hintToggleInput.checked = persistedPageState.hintPreference;
+}
 
 if (!writerContainer && pageRole === 'writer') {
   throw new Error('#writer element missing');
@@ -123,8 +206,17 @@ const defaultSequenceSample = '天地玄黄宇宙洪荒';
 const parseSequenceValue = (value: string) =>
   Array.from(value.replace(/\s+/g, '')).filter((char) => Boolean(char.trim()));
 
-let sequenceQueue: string[] = [];
-let sequenceIndex = -1;
+const restoredSequenceQueue = parseSequenceValue(sequenceInput?.value || '');
+const restoredSequenceIndexRaw = persistedPageState.sequenceIndex;
+
+let sequenceQueue: string[] = restoredSequenceQueue;
+let sequenceIndex =
+  restoredSequenceQueue.length &&
+  typeof restoredSequenceIndexRaw === 'number' &&
+  restoredSequenceIndexRaw >= 0 &&
+  restoredSequenceIndexRaw < restoredSequenceQueue.length
+    ? restoredSequenceIndexRaw
+    : -1;
 
 const bodyElm = document.body;
 type StrokeHistoryEntry = {
@@ -139,11 +231,67 @@ const STROKE_HISTORY_LIMIT = 50;
 const strokeHistory: StrokeHistoryEntry[] = [];
 let currentCharStrokePaths: string[] = [];
 let currentCharUserPaths: string[] = [];
-let activeCharacter = initialSessionMode === 'upload' ? '' : '我';
+let activeCharacter =
+  initialSessionMode === 'upload'
+    ? ''
+    : sequenceIndex >= 0 && sequenceIndex < sequenceQueue.length
+      ? sequenceQueue[sequenceIndex]
+      : persistedPageState.activeCharacter?.trim() || '我';
 let latestJobRecords: JobRecord[] = [];
 let latestCharacterScore: number | null = null;
+const recentCharacterScores: number[] = [];
+const completedSequenceSlots = new Set<number>();
+let controlsCollapsed = Boolean(loadUiState().controlsCollapsed);
+let lastAchievementKey = '';
+
+const persistWriterState = () => {
+  if (pageRole !== 'writer') return;
+  savePersistedPageState({
+    sequenceInputValue: sequenceInput?.value || '',
+    sequenceIndex,
+    activeCharacter,
+    hintPreference: hintToggleInput?.checked ?? false,
+  });
+};
+
+const syncMobileControlsToggle = () => {
+  if (!mobileControlsToggleBtn || !bodyElm || pageRole !== 'writer') return;
+  bodyElm.dataset.controlsCollapsed = String(controlsCollapsed);
+  mobileControlsToggleBtn.textContent = controlsCollapsed ? '展开设置' : '收起设置';
+  mobileControlsToggleBtn.setAttribute('aria-pressed', String(controlsCollapsed));
+  saveUiState({ controlsCollapsed });
+};
 
 const updateWriterOverview = () => {
+  const currentPosition =
+    sequenceQueue.length && sequenceIndex >= 0 && sequenceIndex < sequenceQueue.length
+      ? sequenceIndex + 1
+      : 0;
+  const progressPercent =
+    sequenceQueue.length > 0 ? Math.round((currentPosition / sequenceQueue.length) * 100) : 0;
+  const completedCount = completedSequenceSlots.size;
+  const recentAverage = recentCharacterScores.length
+    ? recentCharacterScores.reduce((sum, score) => sum + score, 0) / recentCharacterScores.length
+    : null;
+  const bestScore = recentCharacterScores.length ? Math.max(...recentCharacterScores) : null;
+  const isSequenceComplete = sequenceQueue.length > 0 && completedCount >= sequenceQueue.length;
+  let achievementKey = '';
+  let achievementText = '';
+
+  if (bestScore !== null && bestScore >= 0.9) {
+    achievementKey = 'high-score';
+    achievementText = '出现 90+ 高分字，当前笔势控制很稳定。';
+  } else if (completedCount >= 10) {
+    achievementKey = 'ten-complete';
+    achievementText = '已完成 10 个字，适合暂停回看近期弱项。';
+  } else if (completedCount >= 5) {
+    achievementKey = 'five-complete';
+    achievementText = '已完成 5 个字，节奏已经建立，继续保持。';
+  } else if (completedCount >= 3) {
+    achievementKey = 'three-complete';
+    achievementText = '已连续完成 3 个字，状态正在进入稳定区。';
+  }
+
   if (summaryActiveCharElm) {
     summaryActiveCharElm.textContent = activeCharacter || '--';
   }
@@ -159,6 +307,53 @@ const updateWriterOverview = () => {
   }
   if (summaryHistoryCountElm) {
     summaryHistoryCountElm.textContent = `${strokeHistory.length}`;
+  }
+  if (sequenceProgressLabelElm) {
+    sequenceProgressLabelElm.textContent = sequenceQueue.length
+      ? `${currentPosition} / ${sequenceQueue.length}`
+      : '0 / 0';
+  }
+  if (summaryProgressPercentElm) {
+    summaryProgressPercentElm.textContent = `${progressPercent}%`;
+  }
+  if (sequenceProgressFillElm) {
+    sequenceProgressFillElm.style.width = `${progressPercent}%`;
+  }
+  if (summaryRecentScoreElm) {
+    summaryRecentScoreElm.textContent = recentCharacterScores.length
+      ? `${formatScore(recentCharacterScores[0])} 分`
+      : '--';
+  }
+  if (summaryCompletedCountElm) {
+    summaryCompletedCountElm.textContent = `${completedCount}`;
+  }
+  if (summaryRecentAverageElm) {
+    summaryRecentAverageElm.textContent =
+      typeof recentAverage === 'number' ? `${formatScore(recentAverage)} 分` : '--';
+  }
+  if (summaryBestScoreElm) {
+    summaryBestScoreElm.textContent =
+      typeof bestScore === 'number' ? `${formatScore(bestScore)} 分` : '--';
+  }
+  if (sequenceAchievementElm) {
+    sequenceAchievementElm.hidden = !achievementText;
+    if (achievementText) {
+      if (achievementKey !== lastAchievementKey) {
+        sequenceAchievementElm.textContent = achievementText;
+      }
+    }
+  }
+  lastAchievementKey = achievementKey;
+  if (sequenceCompleteBannerElm) {
+    sequenceCompleteBannerElm.hidden = !isSequenceComplete;
+    if (isSequenceComplete) {
+      const averageText =
+        typeof recentAverage === 'number' ? `近 5 字均分 ${formatScore(recentAverage)} 分` : '继续保持当前节奏';
+      sequenceCompleteBannerElm.textContent =
+        sessionMode === 'test'
+          ? `本轮测试已完成，共完成 ${completedCount} 个字，${averageText}。`
+          : `本轮练习已完成，共完成 ${completedCount} 个字，${averageText}。`;
+    }
   }
   notifyParentFrame();
 };
@@ -207,6 +402,13 @@ const renderSequencePreview = () => {
   });
 };
 
+const resetRecentCharacterScores = () => {
+  recentCharacterScores.length = 0;
+  completedSequenceSlots.clear();
+  lastAchievementKey = '';
+  updateWriterOverview();
+};
+
 const updateSequenceStatus = () => {
   if (sequenceCurrentElm) {
     if (sequenceIndex >= 0 && sequenceIndex < sequenceQueue.length) {
@@ -224,6 +426,7 @@ const updateSequenceStatus = () => {
   }
   renderSequencePreview();
   updateWriterOverview();
+  persistWriterState();
 };
 
 updateSequenceStatus();
@@ -503,6 +706,14 @@ const showCharacterResult = (char: string, score: number) => {
   if (characterResultNoteElm) {
     characterResultNoteElm.textContent = noteMap[band];
   }
+  if (sequenceQueue.length && sequenceIndex >= 0 && sequenceIndex < sequenceQueue.length) {
+    completedSequenceSlots.add(sequenceIndex);
+  }
+  recentCharacterScores.unshift(score);
+  if (recentCharacterScores.length > 5) {
+    recentCharacterScores.pop();
+  }
+  updateWriterOverview();
   notifyParentFrame();
 };
 
@@ -573,6 +784,7 @@ const loadCharacter = (char: string) => {
   if (!char || !currentWriter) return;
   activeCharacter = char;
   updateWriterOverview();
+  persistWriterState();
   const writer = currentWriter;
   resetScorePanel();
   resetCharacterResult(`已切换到“${char}”，完成整字后显示评价。`);
@@ -624,6 +836,7 @@ const applySequenceFromInput = () => {
   const nextQueue = parseSequenceValue(raw);
   sequenceQueue = nextQueue;
   sequenceIndex = -1;
+  resetRecentCharacterScores();
   if (!nextQueue.length) {
     setStatus('请输入至少一个汉字后再开始序列练习。');
     updateSequenceStatus();
@@ -661,6 +874,7 @@ const updateModeButtons = () => {
   modeButtons.forEach((btn) => {
     const target = btn.dataset.mode as SessionMode | undefined;
     btn.classList.toggle('is-active', target === sessionMode);
+    btn.setAttribute('aria-pressed', String(target === sessionMode));
   });
   applyModePanels();
   notifyParentFrame();
@@ -748,7 +962,7 @@ const setSessionMode = (mode: SessionMode) => {
       }
     }
     if (jobListElm) jobListElm.innerHTML = '';
-    if (jobResultPanel) clearJobResult();
+    if (jobResultPanel) clearJobResult(pageRole === 'upload' && previousMode === 'practice');
     if (apiConfigured) startJobPolling();
     return;
   }
@@ -772,18 +986,16 @@ const setSessionMode = (mode: SessionMode) => {
 
 if (writerContainer) {
   resetScorePanel();
-  currentWriter = createWriter('我');
+  currentWriter = createWriter(activeCharacter || '我');
   syncHintToggleState();
   updateModeButtons();
-  loadCharacter('我');
+  loadCharacter(activeCharacter || '我');
 } else {
   updateModeButtons();
   syncHintToggleState();
 }
 
-if (initialSessionMode !== 'practice' || pageRole === 'upload') {
-  setSessionMode(initialSessionMode);
-}
+syncMobileControlsToggle();
 
 if (chipList) {
   const defaultChars = Object.keys(localDataMap);
@@ -795,6 +1007,7 @@ if (chipList) {
       if (sequenceInput) {
         const existing = sequenceInput.value.replace(/\s+/g, '');
         sequenceInput.value = existing ? `${existing}${char}` : char;
+        persistWriterState();
         applySequenceFromInput();
       } else {
         sequenceQueue = [char];
@@ -828,6 +1041,7 @@ sequenceSampleBtn?.addEventListener('click', () => {
 sequenceResetBtn?.addEventListener('click', () => {
   sequenceQueue = [];
   sequenceIndex = -1;
+  resetRecentCharacterScores();
   if (sequenceInput) sequenceInput.value = '';
   setStatus('已清空字帖内容，输入新的字帖后重新载入。');
   setSessionStatus('字帖已清空，请输入新的汉字内容。');
@@ -844,16 +1058,23 @@ sequenceInput?.addEventListener('keydown', (event) => {
 
 restartQuizBtn?.addEventListener('click', () => {
   resetScorePanel();
+  resetRecentCharacterScores();
   resetCharacterResult('已重新开始，请完成整字后查看新的评价。');
   startQuiz();
 });
 
 hintToggleInput?.addEventListener('change', () => {
   practiceHintPreference = Boolean(hintToggleInput.checked);
+  persistWriterState();
   if (sessionMode === 'practice') {
     hintsEnabled = practiceHintPreference;
     startQuiz();
   }
+});
+
+mobileControlsToggleBtn?.addEventListener('click', () => {
+  controlsCollapsed = !controlsCollapsed;
+  syncMobileControlsToggle();
 });
 
 modeButtons.forEach((btn) => {
@@ -868,11 +1089,19 @@ modeButtons.forEach((btn) => {
 const uploadForm = document.getElementById('upload-form') as HTMLFormElement | null;
 const uploadButton = document.getElementById('upload-submit') as HTMLButtonElement | null;
 const pageFileInput = document.getElementById('page-file') as HTMLInputElement | null;
+const pageFilePreview = document.getElementById('page-file-preview');
+const pageFilePreviewMedia = document.querySelector<HTMLElement>('.upload-file-preview__media');
+const pageFilePreviewImage = document.getElementById(
+  'page-file-preview-image',
+) as HTMLImageElement | null;
+const pageFilePreviewName = document.getElementById('page-file-preview-name');
+const pageFilePreviewMeta = document.getElementById('page-file-preview-meta');
 const artifactSelect = document.getElementById('artifact-level') as HTMLSelectElement | null;
 const scoreArtifactSelect = document.getElementById('score-artifact-level') as HTMLSelectElement | null;
 const executionModeSelect = document.getElementById('execution-mode') as HTMLSelectElement | null;
 const jobListElm = document.getElementById('job-list-entries');
 const jobStatusMessage = document.getElementById('job-status-message');
+const jobStatusSummary = document.getElementById('job-status-summary');
 const jobStatusFilterSelect = document.getElementById(
   'job-status-filter',
 ) as HTMLSelectElement | null;
@@ -901,10 +1130,87 @@ const jobResultDetailEndpoints = document.getElementById('job-result-detail-endp
 const jobResultDetailDirection = document.getElementById('job-result-detail-direction');
 const jobResultDetailShape = document.getElementById('job-result-detail-shape');
 const jobResultDetailAdvice = document.getElementById('job-result-detail-advice');
+const jobResultDetailActions = document.getElementById('job-result-detail-actions');
+const jobResultCards = document.getElementById('job-result-cards');
 const jobResultCells = document.getElementById('job-result-cells');
 const jobResultClose = document.getElementById('job-result-close');
+const jobResultCopy = document.getElementById('job-result-copy');
+const jobResultExport = document.getElementById('job-result-export');
 let currentJobResult: JobResultPayload | null = null;
 let selectedResultCellId = '';
+let pageFilePreviewUrl = '';
+
+const persistUploadPreferences = () => {
+  savePersistedPageState({
+    artifactLevel: artifactSelect?.value,
+    scoreArtifactLevel: scoreArtifactSelect?.value,
+    executionMode: executionModeSelect?.value,
+    jobStatusFilter:
+      (jobStatusFilterSelect?.value as PersistedPageState['jobStatusFilter'] | undefined) || 'all',
+    resultFilter:
+      (jobResultFilter?.value as PersistedPageState['resultFilter'] | undefined) || 'all',
+    resultDimensionFilter:
+      (jobResultDimensionFilter?.value as PersistedPageState['resultDimensionFilter'] | undefined) ||
+      'all',
+    resultQuery: jobResultQuery?.value || '',
+  });
+};
+
+const restoreSelectValue = (element: HTMLSelectElement | null, value: string | undefined) => {
+  if (!element || !value) return;
+  const hasOption = Array.from(element.options).some((option) => option.value === value);
+  if (hasOption) {
+    element.value = value;
+  }
+};
+
+restoreSelectValue(artifactSelect, persistedPageState.artifactLevel);
+restoreSelectValue(scoreArtifactSelect, persistedPageState.scoreArtifactLevel);
+restoreSelectValue(executionModeSelect, persistedPageState.executionMode);
+restoreSelectValue(jobStatusFilterSelect, persistedPageState.jobStatusFilter);
+restoreSelectValue(jobResultFilter, persistedPageState.resultFilter);
+restoreSelectValue(jobResultDimensionFilter, persistedPageState.resultDimensionFilter);
+if (jobResultQuery && typeof persistedPageState.resultQuery === 'string') {
+  jobResultQuery.value = persistedPageState.resultQuery;
+}
+
+const revokePageFilePreviewUrl = () => {
+  if (!pageFilePreviewUrl) return;
+  URL.revokeObjectURL(pageFilePreviewUrl);
+  pageFilePreviewUrl = '';
+};
+
+const formatFileSize = (bytes: number) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const renderPageFilePreview = (file?: File | null) => {
+  if (!pageFilePreview || !pageFilePreviewName || !pageFilePreviewMeta) return;
+  revokePageFilePreviewUrl();
+  if (!file) {
+    pageFilePreview.className = 'upload-file-preview upload-file-preview--empty';
+    pageFilePreviewName.textContent = '尚未选择稿纸';
+    pageFilePreviewMeta.textContent = '支持拍照、相册选择或 PDF 上传。';
+    if (pageFilePreviewMedia) pageFilePreviewMedia.hidden = true;
+    if (pageFilePreviewImage) pageFilePreviewImage.removeAttribute('src');
+    return;
+  }
+
+  pageFilePreview.className = 'upload-file-preview';
+  pageFilePreviewName.textContent = file.name;
+  pageFilePreviewMeta.textContent = `${file.type || '未知格式'} · ${formatFileSize(file.size)}`;
+
+  if (file.type.startsWith('image/') && pageFilePreviewMedia && pageFilePreviewImage) {
+    pageFilePreviewUrl = URL.createObjectURL(file);
+    pageFilePreviewImage.src = pageFilePreviewUrl;
+    pageFilePreviewMedia.hidden = false;
+  } else {
+    if (pageFilePreviewMedia) pageFilePreviewMedia.hidden = true;
+    if (pageFilePreviewImage) pageFilePreviewImage.removeAttribute('src');
+  }
+};
 
 if (jobStatusMessage) {
   jobStatusMessage.textContent =
@@ -944,9 +1250,99 @@ const formatDate = (value?: string) => {
   }
 };
 
+const renderJobStatusSummary = (jobs: JobRecord[]) => {
+  if (!jobStatusSummary) return;
+  const counts = {
+    queued: jobs.filter((job) => job.status === 'queued').length,
+    running: jobs.filter((job) => job.status === 'running').length,
+    succeeded: jobs.filter((job) => job.status === 'succeeded').length,
+    failed: jobs.filter((job) => job.status === 'failed').length,
+  };
+  jobStatusSummary.innerHTML = '';
+  [
+    ['全部', jobs.length, 'all'],
+    ['排队中', counts.queued, 'queued'],
+    ['进行中', counts.running, 'running'],
+    ['已完成', counts.succeeded, 'succeeded'],
+    ['失败', counts.failed, 'failed'],
+  ].forEach(([label, count, tone]) => {
+    const pill = document.createElement('div');
+    pill.className = `job-status-summary__item job-status-summary__item--${tone}`;
+    pill.innerHTML = `<span>${label}</span><strong>${count}</strong>`;
+    jobStatusSummary.appendChild(pill);
+  });
+};
+
+const renderJobListItem = (job: JobRecord, featuredJobId: string) => {
+  if (!jobListElm) return;
+  const li = document.createElement('li');
+  li.className = 'job-pill';
+  if (featuredJobId && job.jobId === featuredJobId && job.status === 'succeeded') {
+    li.classList.add('job-pill--featured');
+  }
+  const header = document.createElement('div');
+  header.className = 'job-pill__row';
+  const name = document.createElement('span');
+  name.textContent = job.fileName || job.jobId;
+  const status = document.createElement('span');
+  status.className = `job-pill__status job-pill__status--${job.status}`;
+  status.textContent = job.status;
+  header.append(name, status);
+  const meta = document.createElement('div');
+  meta.className = 'job-pill__meta';
+  meta.textContent = `ID: ${job.jobId} · 创建：${formatDate(job.createdAt)} · 更新：${formatDate(
+    job.updatedAt,
+  )} · 模式：${job.executionMode || 'pipeline'}`;
+  li.append(header, meta);
+  if (job.summary?.cellCount) {
+    const cellInfo = document.createElement('div');
+    cellInfo.className = 'job-pill__meta';
+    cellInfo.textContent = `单元格：${job.summary.cellCount}${
+      typeof job.summary.averageScore === 'number'
+        ? ` · 平均分：${formatScore(job.summary.averageScore)}`
+        : ''
+    }${job.summary.scoredCount ? ` · 已评分：${job.summary.scoredCount}` : ''}`;
+    li.appendChild(cellInfo);
+  }
+  if (job.status === 'succeeded') {
+    const actions = document.createElement('div');
+    actions.className = 'job-pill__actions';
+    const download = document.createElement('a');
+    download.href = buildApiUrl(`/api/jobs/${job.jobId}/result`);
+    download.target = '_blank';
+    download.rel = 'noreferrer';
+    download.textContent = '下载结果';
+    actions.appendChild(download);
+    const detailBtn = document.createElement('button');
+    detailBtn.type = 'button';
+    detailBtn.className = 'btn-secondary';
+    detailBtn.textContent = '查看详情';
+    detailBtn.addEventListener('click', () => viewJobResult(job.jobId));
+    actions.appendChild(detailBtn);
+    li.appendChild(actions);
+  }
+  if (job.status === 'failed' && job.error) {
+    const errorText = document.createElement('div');
+    errorText.className = 'job-pill__error';
+    errorText.textContent = `失败：${job.error}`;
+    li.appendChild(errorText);
+    const actions = document.createElement('div');
+    actions.className = 'job-pill__actions';
+    const retryBtn = document.createElement('button');
+    retryBtn.type = 'button';
+    retryBtn.className = 'btn-secondary';
+    retryBtn.textContent = '重试';
+    retryBtn.addEventListener('click', () => retryJob(job.jobId));
+    actions.appendChild(retryBtn);
+    li.appendChild(actions);
+  }
+  jobListElm.appendChild(li);
+};
+
 const renderJobs = (jobs: JobRecord[]) => {
   latestJobRecords = jobs;
   updateUploadOverview();
+  renderJobStatusSummary(jobs);
   if (!jobListElm) return;
   jobListElm.innerHTML = '';
   if (!jobs.length) {
@@ -973,69 +1369,24 @@ const renderJobs = (jobs: JobRecord[]) => {
       ? `共 ${jobs.length} 个任务，最新在最前。`
       : `共 ${jobs.length} 个任务，筛选后显示 ${filteredJobs.length} 个 ${activeFilter} 任务。`,
   );
-  filteredJobs.forEach((job) => {
-    const li = document.createElement('li');
-    li.className = 'job-pill';
-    if (featuredJobId && job.jobId === featuredJobId && job.status === 'succeeded') {
-      li.classList.add('job-pill--featured');
-    }
-    const header = document.createElement('div');
-    header.className = 'job-pill__row';
-    const name = document.createElement('span');
-    name.textContent = job.fileName || job.jobId;
-    const status = document.createElement('span');
-    status.className = `job-pill__status job-pill__status--${job.status}`;
-    status.textContent = job.status;
-    header.append(name, status);
-    const meta = document.createElement('div');
-    meta.className = 'job-pill__meta';
-    meta.textContent = `ID: ${job.jobId} · 创建：${formatDate(job.createdAt)} · 更新：${formatDate(
-      job.updatedAt,
-    )} · 模式：${job.executionMode || 'pipeline'}`;
-    li.append(header, meta);
-    if (job.summary?.cellCount) {
-      const cellInfo = document.createElement('div');
-      cellInfo.className = 'job-pill__meta';
-      cellInfo.textContent = `单元格：${job.summary.cellCount}${
-        typeof job.summary.averageScore === 'number'
-          ? ` · 平均分：${formatScore(job.summary.averageScore)}`
-          : ''
-      }${job.summary.scoredCount ? ` · 已评分：${job.summary.scoredCount}` : ''}`;
-      li.appendChild(cellInfo);
-    }
-    if (job.status === 'succeeded') {
-      const actions = document.createElement('div');
-      actions.className = 'job-pill__actions';
-      const download = document.createElement('a');
-      download.href = buildApiUrl(`/api/jobs/${job.jobId}/result`);
-      download.target = '_blank';
-      download.rel = 'noreferrer';
-      download.textContent = '下载结果';
-      actions.appendChild(download);
-      const detailBtn = document.createElement('button');
-      detailBtn.type = 'button';
-      detailBtn.className = 'btn-secondary';
-      detailBtn.textContent = '查看详情';
-      detailBtn.addEventListener('click', () => viewJobResult(job.jobId));
-      actions.appendChild(detailBtn);
-      li.appendChild(actions);
-    }
-    if (job.status === 'failed' && job.error) {
-      const errorText = document.createElement('div');
-      errorText.className = 'job-pill__error';
-      errorText.textContent = `失败：${job.error}`;
-      li.appendChild(errorText);
-      const actions = document.createElement('div');
-      actions.className = 'job-pill__actions';
-      const retryBtn = document.createElement('button');
-      retryBtn.type = 'button';
-      retryBtn.className = 'btn-secondary';
-      retryBtn.textContent = '重试';
-      retryBtn.addEventListener('click', () => retryJob(job.jobId));
-      actions.appendChild(retryBtn);
-      li.appendChild(actions);
-    }
-    jobListElm.appendChild(li);
+  const groups =
+    activeFilter === 'all'
+      ? [
+          { title: '进行中', jobs: filteredJobs.filter((job) => job.status === 'running' || job.status === 'queued') },
+          { title: '已完成', jobs: filteredJobs.filter((job) => job.status === 'succeeded') },
+          { title: '失败任务', jobs: filteredJobs.filter((job) => job.status === 'failed') },
+        ]
+      : [{ title: `${activeFilter} 任务`, jobs: filteredJobs }];
+
+  groups.forEach((group) => {
+    if (!group.jobs.length) return;
+    const label = document.createElement('li');
+    label.className = 'job-list__group-label';
+    label.textContent = `${group.title} · ${group.jobs.length}`;
+    jobListElm.appendChild(label);
+    group.jobs.forEach((job) => {
+      renderJobListItem(job, featuredJobId);
+    });
   });
 };
 
@@ -1091,7 +1442,96 @@ const focusResultCell = (cellId: string) => {
   if (jobResultQuery) {
     jobResultQuery.value = cellId;
   }
+  persistUploadPreferences();
   renderJobResult(currentJobResult);
+};
+
+const applyResultFilters = (
+  filter: ResultCellFilter,
+  dimension: ResultCellDimensionFilter,
+  query = '',
+) => {
+  if (jobResultFilter) {
+    jobResultFilter.value = filter;
+  }
+  if (jobResultDimensionFilter) {
+    jobResultDimensionFilter.value = dimension;
+  }
+  if (jobResultQuery) {
+    jobResultQuery.value = query;
+  }
+  selectedResultCellId = '';
+  persistUploadPreferences();
+  renderJobResult(currentJobResult);
+};
+
+const getPreferredReviewCells = (result: JobResultPayload) => {
+  const filteredCells = getFilteredResultCells(result.cells);
+  if (filteredCells.length) return filteredCells;
+  const lowCells = result.cells.filter(
+    (cell) => typeof cell.score?.overall === 'number' && cell.score.overall < 0.6,
+  );
+  return lowCells.length ? lowCells : result.cells;
+};
+
+const buildReviewChecklistText = (result: JobResultPayload) => {
+  const sourceCells = getPreferredReviewCells(result);
+  const lines = [
+    `任务 ${result.jobId} 复习清单`,
+    `生成时间：${new Date().toLocaleString()}`,
+    `共 ${sourceCells.length} 个重点格子`,
+    '',
+  ];
+
+  sourceCells.forEach((cell, index) => {
+    const weakest = getWeakestScoreDimension(cell.score);
+    lines.push(
+      `${index + 1}. ${cell.id} · ${cell.char || '未知字符'} · 总分 ${formatScoreText(cell.score?.overall)}`,
+    );
+    if (weakest) {
+      lines.push(`   最弱维度：${weakest[0]} ${formatScoreText(weakest[1])}`);
+    }
+    lines.push(`   建议：${getResultAdvice(cell)}`);
+    lines.push('');
+  });
+
+  return lines.join('\n').trim();
+};
+
+const copyReviewChecklist = async () => {
+  if (!currentJobResult) {
+    showJobMessage('请先打开任务详情，再复制复习清单。');
+    return;
+  }
+  const text = buildReviewChecklistText(currentJobResult);
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      showJobMessage('复习清单已复制，可直接发送给老师或保存。');
+    } else {
+      throw new Error('clipboard unavailable');
+    }
+  } catch {
+    showJobMessage('当前环境不支持直接复制，请使用导出清单。', true);
+  }
+};
+
+const exportReviewChecklist = () => {
+  if (!currentJobResult) {
+    showJobMessage('请先打开任务详情，再导出复习清单。');
+    return;
+  }
+  const text = buildReviewChecklistText(currentJobResult);
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `review-checklist-${currentJobResult.jobId}.txt`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  showJobMessage('复习清单已导出。');
 };
 
 const getResultDimensionFilter = (): ResultCellDimensionFilter => {
@@ -1117,6 +1557,7 @@ const setResultDetailPlaceholder = () => {
   if (jobResultDetailDirection) jobResultDetailDirection.textContent = '走向：--';
   if (jobResultDetailShape) jobResultDetailShape.textContent = '形态：--';
   if (jobResultDetailAdvice) jobResultDetailAdvice.textContent = '等待详情数据。';
+  if (jobResultDetailActions) jobResultDetailActions.innerHTML = '';
 };
 
 const getResultAdvice = (cell: ResultCell) => {
@@ -1183,9 +1624,40 @@ const renderSelectedResultCell = (cells: ResultCell[]) => {
   if (jobResultDetailAdvice) {
     jobResultDetailAdvice.textContent = getResultAdvice(selectedCell);
   }
+  if (jobResultDetailActions) {
+    jobResultDetailActions.innerHTML = '';
+    const weakestKey = getWeakestScoreDimensionKey(selectedCell.score);
+
+    const weakAction = document.createElement('button');
+    weakAction.type = 'button';
+    weakAction.className = 'btn-secondary';
+    weakAction.textContent = weakestKey ? '复查同类弱项' : '查看全部格子';
+    weakAction.addEventListener('click', () => {
+      applyResultFilters('low', weakestKey || 'all');
+    });
+    jobResultDetailActions.appendChild(weakAction);
+
+    const sameCharAction = document.createElement('button');
+    sameCharAction.type = 'button';
+    sameCharAction.className = 'btn-secondary';
+    sameCharAction.textContent = selectedCell.char ? '定位同字符' : '清除定位';
+    sameCharAction.addEventListener('click', () => {
+      applyResultFilters('all', 'all', selectedCell.char || '');
+    });
+    jobResultDetailActions.appendChild(sameCharAction);
+
+    const resetAction = document.createElement('button');
+    resetAction.type = 'button';
+    resetAction.className = 'btn-secondary';
+    resetAction.textContent = '清除筛选';
+    resetAction.addEventListener('click', () => {
+      applyResultFilters('all', 'all');
+    });
+    jobResultDetailActions.appendChild(resetAction);
+  }
 };
 
-const clearJobResult = () => {
+const clearJobResult = (preserveFilters = false) => {
   currentJobResult = null;
   selectedResultCellId = '';
   if (jobResultTitle) jobResultTitle.textContent = '尚未选择任务';
@@ -1198,15 +1670,88 @@ const clearJobResult = () => {
   if (jobResultVisibleCount) jobResultVisibleCount.textContent = '--';
   if (jobResultWeakestCell) jobResultWeakestCell.textContent = '--';
   if (jobResultLowScore) jobResultLowScore.innerHTML = '';
-  if (jobResultFilter) jobResultFilter.value = 'all';
-  if (jobResultDimensionFilter) jobResultDimensionFilter.value = 'all';
-  if (jobResultQuery) jobResultQuery.value = '';
+  if (jobResultCards) {
+    jobResultCards.innerHTML = '';
+    jobResultCards.hidden = true;
+  }
+  if (!preserveFilters) {
+    if (jobResultFilter) jobResultFilter.value = 'all';
+    if (jobResultDimensionFilter) jobResultDimensionFilter.value = 'all';
+    if (jobResultQuery) jobResultQuery.value = '';
+  }
   setResultDetailPlaceholder();
   if (jobResultCells) {
     jobResultCells.innerHTML =
       '<tr><td colspan="6" class="job-result__placeholder">暂无数据</td></tr>';
   }
+  persistUploadPreferences();
   updateUploadOverview();
+};
+
+const renderJobResultCards = (cells: ResultCell[]) => {
+  if (!jobResultCards) return;
+  jobResultCards.innerHTML = '';
+  if (!cells.length) {
+    jobResultCards.hidden = false;
+    jobResultCards.innerHTML = '<p class="job-result__placeholder">当前筛选下无格子数据</p>';
+    return;
+  }
+  jobResultCards.hidden = false;
+  cells.slice(0, 50).forEach((cell) => {
+    const card = document.createElement('article');
+    const overall = cell.score?.overall;
+    const band = typeof overall === 'number' ? getScoreBand(overall) : 'medium';
+    const weakest = getWeakestScoreDimension(cell.score);
+    card.className = `job-result__cell-card job-result__cell-card--${band}`;
+    if (selectedResultCellId && selectedResultCellId === cell.id) {
+      card.classList.add('job-result__cell-card--selected');
+    }
+    card.tabIndex = 0;
+
+    const header = document.createElement('div');
+    header.className = 'job-result__cell-card-header';
+    header.innerHTML = `
+      <strong>${cell.id} · ${cell.char || '未知字符'}</strong>
+      <span>${typeof overall === 'number' ? getScoreBandLabel(overall) : '待补数据'}</span>
+    `;
+
+    const score = document.createElement('p');
+    score.className = 'job-result__cell-card-score';
+    score.textContent = `总分 ${formatScoreText(overall)}`;
+
+    const chips = document.createElement('div');
+    chips.className = 'job-result__cell-card-chips';
+    [
+      ['起止', cell.score?.endpoints],
+      ['走向', cell.score?.direction],
+      ['形态', cell.score?.shape],
+    ].forEach(([label, value]) => {
+      const chip = document.createElement('span');
+      chip.className = 'job-result__cell-card-chip';
+      chip.textContent = `${label} ${formatScoreText(value as number | null | undefined)}`;
+      chips.appendChild(chip);
+    });
+
+    const note = document.createElement('p');
+    note.className = 'job-result__cell-card-note';
+    note.textContent = weakest
+      ? `最低维度：${weakest[0]} ${formatScoreText(weakest[1])}`
+      : '当前格子暂无完整分项数据';
+
+    const selectCard = () => {
+      selectedResultCellId = cell.id;
+      renderJobResult(currentJobResult);
+    };
+    card.addEventListener('click', selectCard);
+    card.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        selectCard();
+      }
+    });
+    card.append(header, score, chips, note);
+    jobResultCards.appendChild(card);
+  });
 };
 
 const renderJobResult = (result: JobResultPayload | null) => {
@@ -1315,6 +1860,7 @@ const renderJobResult = (result: JobResultPayload | null) => {
     }
   }
   renderSelectedResultCell(filteredCells);
+  renderJobResultCards(filteredCells);
   if (jobResultCells) {
     jobResultCells.innerHTML = '';
     if (!filteredCells.length) {
@@ -1428,6 +1974,7 @@ uploadForm?.addEventListener('submit', async (event) => {
   if (artifactSelect) formData.append('artifactLevel', artifactSelect.value);
   if (scoreArtifactSelect) formData.append('scoreArtifactLevel', scoreArtifactSelect.value);
   if (executionModeSelect) formData.append('executionMode', executionModeSelect.value);
+  persistUploadPreferences();
   try {
     setUploading(true);
     const response = await fetch(buildApiUrl('/api/jobs'), {
@@ -1438,6 +1985,7 @@ uploadForm?.addEventListener('submit', async (event) => {
       throw new Error(await parseErrorResponse(response));
     }
     pageFileInput.value = '';
+    renderPageFilePreview(null);
     showJobMessage('任务已排队，稍后刷新状态。');
     fetchJobs();
   } catch (error) {
@@ -1461,6 +2009,7 @@ refreshJobsBtn?.addEventListener('click', () => {
 });
 
 jobStatusFilterSelect?.addEventListener('change', () => {
+  persistUploadPreferences();
   renderJobs(latestJobRecords);
 });
 
@@ -1468,18 +2017,29 @@ jobResultClose?.addEventListener('click', () => {
   clearJobResult();
 });
 
+jobResultCopy?.addEventListener('click', () => {
+  void copyReviewChecklist();
+});
+
+jobResultExport?.addEventListener('click', () => {
+  exportReviewChecklist();
+});
+
 jobResultFilter?.addEventListener('change', () => {
   selectedResultCellId = '';
+  persistUploadPreferences();
   renderJobResult(currentJobResult);
 });
 
 jobResultDimensionFilter?.addEventListener('change', () => {
   selectedResultCellId = '';
+  persistUploadPreferences();
   renderJobResult(currentJobResult);
 });
 
 jobResultQuery?.addEventListener('input', () => {
   selectedResultCellId = '';
+  persistUploadPreferences();
   renderJobResult(currentJobResult);
 });
 
@@ -1494,10 +2054,24 @@ jobResultReset?.addEventListener('click', () => {
   if (jobResultQuery) {
     jobResultQuery.value = '';
   }
+  persistUploadPreferences();
   renderJobResult(currentJobResult);
 });
 
-clearJobResult();
+artifactSelect?.addEventListener('change', persistUploadPreferences);
+scoreArtifactSelect?.addEventListener('change', persistUploadPreferences);
+executionModeSelect?.addEventListener('change', persistUploadPreferences);
+sequenceInput?.addEventListener('input', persistWriterState);
+pageFileInput?.addEventListener('change', () => {
+  renderPageFilePreview(pageFileInput.files?.[0] || null);
+});
+
+if (initialSessionMode !== 'practice' || pageRole === 'upload') {
+  setSessionMode(initialSessionMode);
+}
+
+clearJobResult(true);
+renderPageFilePreview(pageFileInput?.files?.[0] || null);
 
 const resizeObserver = new ResizeObserver(() => {
   notifyParentFrame();
@@ -1508,3 +2082,4 @@ resizeObserver.observe(document.documentElement);
 window.addEventListener('load', notifyParentFrame);
 window.addEventListener('resize', notifyParentFrame);
 window.setTimeout(notifyParentFrame, 0);
+window.addEventListener('beforeunload', revokePageFilePreviewUrl);

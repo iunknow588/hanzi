@@ -1,0 +1,19 @@
+{
+  "name": "汉字书写评分",
+  "short_name": "汉字评分",
+  "description": "适合练习、测试与稿纸上传的汉字书写评分 H5。",
+  "start_url": "./index.html?mode=practice",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
