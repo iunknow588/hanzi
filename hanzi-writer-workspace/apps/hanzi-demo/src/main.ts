@@ -1341,7 +1341,9 @@ if (jobStatusMessage) {
 
 const rawApiBase = (import.meta.env.VITE_HANZI_API_BASE as string | undefined) || '';
 const normalizedApiBase = rawApiBase.endsWith('/') ? rawApiBase.slice(0, -1) : rawApiBase;
-const allowRelativeApi = import.meta.env.DEV;
+const allowRelativeApi =
+  typeof window !== 'undefined' &&
+  (window.location.protocol === 'http:' || window.location.protocol === 'https:');
 const apiConfigured = Boolean(normalizedApiBase) || allowRelativeApi;
 const buildApiUrl = (pathname: string) =>
   normalizedApiBase ? `${normalizedApiBase}${pathname}` : pathname;
